@@ -1,0 +1,7 @@
+/*
+  # CSP: default-deny; only inline code, the blob: worker, and Cloudflare's
+  # analytics beacon are permitted. No third-party fonts or scripts exist.
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline' blob: https://static.cloudflareinsights.com; worker-src blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://cloudflareinsights.com; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=()

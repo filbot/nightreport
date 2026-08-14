@@ -1,0 +1,1208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NightReport: Free CPAP Report Card from Your ResMed SD Card</title>
+<meta name="description" content="Free, private CPAP data viewer for ResMed AirSense 10/11. Read your SD card in your browser and get a plain-English report card: AHI, mask leak, pressure, usage. Nothing is uploaded.">
+<meta property="og:title" content="NightReport: a private report card for your CPAP data">
+<meta property="og:description" content="Drop in your CPAP SD card and get a plain-English report card. 100% in-browser, so your data never leaves your device. Free and open source.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<!-- After deploy, set absolute URLs for these two: -->
+<meta property="og:image" content="https://nightreport.app/og.png">
+<meta property="og:url" content="https://nightreport.app/">
+<meta property="og:site_name" content="NightReport">
+<link rel="canonical" href="https://nightreport.app/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23FFC93C' stroke='%23191713' stroke-width='2'/%3E%3Cpath d='M4 20 Q8 12 12 17 T20 16 T28 15' fill='none' stroke='%23191713' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+:root{
+  --paper:#F6EFE2; --sheet:#FFFDF6; --ink:#191713; --ink-2:#4F4A40; --ink-3:#857D6E;
+  --rule:#E7DCC6; --line:#191713;
+  --graph:#2B59C3; --yellow:#FFC93C; --on-yellow:#191713;
+  --good:#3E6B1F; --good-bg:#DFF0C8; --warn:#8A6200; --warn-bg:#FBEBBB;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+  --body:system-ui,-apple-system,"Segoe UI",sans-serif;
+  --display:-apple-system,"SF Pro Display",system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --shadow:4px 4px 0 var(--line);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#1E1913; --sheet:#282217; --ink:#F4EBD9; --ink-2:#CFC4AC; --ink-3:#9A9080;
+    --rule:#3C3527; --line:#F4EBD9;
+    --graph:#FFC93C;
+    --good:#B9DE8B; --good-bg:#33461C; --warn:#F2CE6B; --warn-bg:#4A3D12;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%; scrollbar-gutter:stable both-edges}
+@supports not (scrollbar-gutter: stable){
+  html{overflow-y:scroll}
+}
+html,body{margin:0}
+body{background:var(--paper); color:var(--ink); font:15.5px/1.6 var(--body);
+  -webkit-font-smoothing:antialiased; padding:36px 20px 72px}
+.sheet{max-width:720px; margin:0 auto; background:var(--sheet);
+  border:2px solid var(--line); border-radius:22px; overflow:hidden;
+  box-shadow:8px 8px 0 var(--line)}
+header.top{padding:22px 28px 0; display:flex; justify-content:space-between; align-items:baseline; gap:12px; position:relative}
+.wordmark{font-family:var(--display); font-weight:900; font-size:24px; letter-spacing:-.03em}
+.wordmark span{display:inline-block; background:var(--yellow); color:var(--on-yellow);
+  padding:0 8px; margin-left:8px; border:2px solid var(--line); border-radius:9px;
+  box-shadow:2px 2px 0 var(--line); transform:rotate(-2deg)}
+.range{font:12px var(--mono); color:var(--ink-3); text-align:right}
+#strip{display:block; width:100%; height:64px; margin-top:12px; border-top:2px solid var(--line); border-bottom:2px solid var(--line)}
+main{padding:0 28px 28px}
+.state{padding:28px 0}
+h1,.h1{font-family:var(--display); font-weight:800; font-size:23px; letter-spacing:-.01em; margin:0 0 8px}
+p.sub{color:var(--ink-2); margin:0 0 18px; font:13px/1.7 var(--mono)}
+.pill{display:inline-block; font:12px/1 var(--body); font-weight:700;
+  background:var(--yellow); color:var(--on-yellow); border:2px solid var(--line);
+  border-radius:999px; padding:6px 12px; box-shadow:2px 2px 0 var(--line); margin-bottom:12px}
+.drop{border:2px dashed var(--line); border-radius:16px; padding:44px 24px; text-align:center;
+  background:var(--sheet); cursor:pointer; outline:none;
+  transition:transform .15s cubic-bezier(.22,1,.36,1), box-shadow .15s, background .15s}
+.drop:focus-visible,.drop.over{background:color-mix(in srgb, var(--yellow) 14%, var(--sheet));
+  transform:translate(-2px,-2px); box-shadow:var(--shadow); border-style:solid}
+@media (hover:hover){
+  .drop:hover{background:color-mix(in srgb, var(--yellow) 14%, var(--sheet));
+    transform:translate(-2px,-2px); box-shadow:var(--shadow); border-style:solid}
+}
+.drop p{margin:0 0 6px; font-weight:700; font-size:16.5px}
+.drop .browse{text-decoration:underline; text-underline-offset:4px;
+  text-decoration-thickness:2.5px;
+  text-decoration-color:color-mix(in srgb, var(--yellow) 72%, var(--ink))}
+.drop small{color:var(--ink-3); font:12px var(--mono)}
+.actions{display:flex; gap:12px; justify-content:center; margin-top:20px; flex-wrap:wrap}
+button{font:14px/1 var(--body); font-weight:700; color:var(--ink); background:var(--sheet);
+  border:2px solid var(--line); border-radius:999px; padding:12px 18px; cursor:pointer;
+  box-shadow:3px 3px 0 var(--line);
+  transition:transform .12s cubic-bezier(.22,1,.36,1), box-shadow .12s}
+@media (hover:hover){
+  button:hover{transform:translate(-1px,-1px); box-shadow:4px 4px 0 var(--line)}
+}
+button:active{transform:translate(3px,3px); box-shadow:0 0 0 var(--line)}
+button:focus-visible{outline:3px solid var(--graph); outline-offset:2px}
+button.primary{background:var(--yellow); color:var(--on-yellow)}
+button.btn-text{background:transparent; border-color:transparent; box-shadow:none;
+  color:var(--ink-2); text-decoration:underline; text-underline-offset:3px; font-weight:600}
+@media (hover:hover){
+  button.btn-text:hover{transform:none; box-shadow:none; color:var(--ink); background:transparent}
+}
+button.btn-text:active{transform:none; box-shadow:none}
+.status{font:13px var(--mono); color:var(--ink-2); min-height:20px; margin-top:14px; text-align:center}
+.status[data-busy="1"]::after{content:"▮"; animation:blink 1s steps(1) infinite; margin-left:2px}
+.fineprint{font:11px/1.7 var(--mono); color:var(--ink-3); text-align:center; max-width:440px; margin:18px auto 0}
+.fineprint a{color:inherit}
+details{margin-top:36px; border:1.5px solid var(--line); border-radius:12px; background:var(--sheet); box-shadow:2px 2px 0 var(--line)}
+summary{cursor:pointer; font-weight:700; font-size:14px; padding:12px 16px; list-style:none; display:flex; justify-content:space-between; align-items:center}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+"; font-family:var(--display); font-weight:900; font-size:18px}
+details[open] summary::after{content:"–"}
+details .inner{padding:0 16px 6px; font:12.5px/1.75 var(--mono); color:var(--ink-2)}
+details .inner p{margin:0 0 10px}
+@keyframes blink{50%{opacity:0}}
+.hidden{display:none}
+.overall{display:flex; justify-content:space-between; align-items:center; padding:4px 0 18px; gap:14px}
+.overall .h1{margin:0}
+.overall .meta{font:12px var(--mono); color:var(--ink-3); margin-top:5px; display:flex; align-items:center; gap:7px}
+.info-btn{all:unset; box-sizing:border-box; width:15px; height:15px; flex:none; cursor:pointer;
+  position:relative; border:1px solid color-mix(in srgb, var(--ink-3) 65%, transparent);
+  border-radius:50%; font:italic 700 9.5px/1 Georgia,serif;
+  color:color-mix(in srgb, var(--ink-3) 80%, transparent);
+  display:grid; place-items:center}
+.info-btn::before{content:""; position:absolute; inset:-6px}
+@media (hover:hover){ .info-btn:hover{color:var(--ink-2); border-color:var(--ink-3)} }
+.info-btn:focus-visible{outline:2px solid var(--graph); outline-offset:2px}
+dialog{border:2px solid var(--line); border-radius:14px; box-shadow:6px 6px 0 var(--line);
+  background:var(--sheet); color:var(--ink); padding:22px 24px; max-width:400px; margin:auto}
+dialog::backdrop{background:rgba(20,15,8,.5)}
+dialog h2{font-family:var(--display); font-weight:800; font-size:18px; margin:0 0 10px}
+dialog p{font:13.5px/1.7 var(--body); color:var(--ink-2); margin:0 0 12px}
+dialog form{margin:6px 0 0; text-align:right}
+dialog button:focus,dialog button:focus-visible{outline:none}
+.big-grade{font-family:var(--display); font-weight:900; font-size:40px; line-height:1;
+  color:var(--ink); background:var(--yellow); border:2px solid var(--line); border-radius:14px;
+  box-shadow:var(--shadow); padding:12px 0; width:76px; text-align:center; flex:none}
+@media (prefers-color-scheme: dark){ .big-grade{color:var(--ink)} }
+.row{background:var(--sheet); border:2px solid var(--line); border-radius:14px;
+  box-shadow:var(--shadow); padding:14px 16px; margin-bottom:14px; min-height:96px}
+.row-fill{display:grid; grid-template-columns:56px 1fr; gap:16px; align-items:start}
+
+.grade-good{background:#DFF0C8}
+.grade-ok{background:#FBEBBB}
+.grade-watch{background:#F8D3CB}
+.grade-nodata{background:#ECE6D8}
+@media (prefers-color-scheme: dark){
+  .grade-good{background:#33461C}
+  .grade-ok{background:#4A3D12}
+  .grade-watch{background:#4A231C}
+  .grade-nodata{background:#35301F}
+}
+.gist{font:600 14.5px/1.55 var(--body); margin:0 0 16px}
+.chip{font-family:var(--display); font-weight:800; font-size:19px; text-align:center;
+  border-radius:10px; padding:8px 0; color:var(--ink);
+  background:var(--sheet); border:2px solid var(--line); box-shadow:2px 2px 0 var(--line)}
+.chip.na{color:var(--ink-3); border-style:dashed; box-shadow:none}
+.row h2{font-size:15px; font-weight:700; margin:0 0 3px}
+.row p{margin:0; font:12.5px/1.6 var(--mono); color:color-mix(in srgb, var(--ink) 78%, transparent)}
+.row .val{font:11.5px var(--mono); color:color-mix(in srgb, var(--ink) 55%, transparent); margin-top:4px}
+.badge{display:inline-block; font:11px/1 var(--body); font-weight:700; color:var(--warn);
+  background:var(--warn-bg); border:1.5px solid var(--line); border-radius:999px;
+  padding:3px 9px; margin-left:6px; vertical-align:1px}
+.pending{color:var(--ink-3)}
+.pending .chip{animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.45}}
+@keyframes rise{from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:none}}
+.reveal{animation:rise .55s cubic-bezier(.22,1,.36,1) both}
+.overall,.big-grade{view-transition-name:none}
+.steps{max-width:300px; margin:26px auto 10px; display:flex; flex-direction:column; gap:14px}
+.step{display:flex; gap:12px; align-items:center; font:13.5px var(--mono); color:var(--ink-3); transition:color .35s}
+.step .tick{width:24px; height:24px; flex:none; border:2px solid var(--line); border-radius:50%;
+  display:grid; place-items:center; font-size:12px; font-weight:800; color:transparent;
+  background:var(--sheet); transition:background .35s, color .2s, box-shadow .35s}
+.step.active{color:var(--ink)}
+.step.active .tick{background:var(--yellow); box-shadow:2px 2px 0 var(--line)}
+.step.done{color:var(--ink-2)}
+.step.done .tick{background:var(--good-bg); color:var(--good); box-shadow:2px 2px 0 var(--line)}
+@media (prefers-reduced-motion: reduce){
+  .step,.step .tick{transition:none}
+}
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(96px,1fr)); gap:8px;
+  padding-top:6px; margin-top:2px}
+.kpi{border:1.5px solid var(--line); border-radius:9px; box-shadow:2px 2px 0 var(--line); padding:5px 9px 6px;
+  background:color-mix(in srgb, var(--ink) 4%, var(--sheet))}
+.kpi label{display:block; font:10px var(--mono); color:color-mix(in srgb, var(--ink) 62%, transparent); white-space:nowrap}
+.kpi output{font-family:var(--display); font-weight:800; font-size:15px; font-variant-numeric:tabular-nums lining-nums}
+footer{margin-top:22px; padding-top:18px; border-top:2px solid var(--line);
+  display:flex; flex-direction:column; gap:15px}
+footer .f-block{font:12px/1.75 var(--mono); color:var(--ink-2); max-width:560px}
+footer .f-label{display:block; font:700 10.5px/1 var(--body); letter-spacing:.09em; text-transform:uppercase;
+  color:var(--ink-3); margin-bottom:4px}
+footer .f-block a{color:inherit}
+footer .f-tech{font:11px var(--mono); color:var(--ink-3); text-align:center; margin-top:2px}
+#perf{font-family:var(--mono)}
+#doctor{display:none}
+@media print{
+  body{background:#fff; color:#000; padding:0}
+  .sheet{display:none}
+  #doctor{display:block; font:11pt/1.5 Georgia,"Times New Roman",serif; color:#000; max-width:640pt; margin:0 auto; padding:24pt}
+  #doctor h1{font:700 16pt/1.2 Helvetica,Arial,sans-serif; margin:0 0 2pt}
+  #doctor .sub{font:9pt Helvetica,Arial,sans-serif; color:#444; margin:0 0 14pt}
+  #doctor table{width:100%; border-collapse:collapse}
+  #doctor td{padding:7pt 4pt; border-bottom:0.75pt solid #999; vertical-align:top}
+  #doctor td:first-child{font-weight:700; width:38%; font-family:Helvetica,Arial,sans-serif; font-size:10pt}
+  #doctor .gloss{display:block; font-size:8.5pt; color:#555; font-weight:400; margin-top:1pt}
+  #doctor .note{font-size:8.5pt; color:#444; margin-top:12pt}
+  #doctor .sample{font:700 10pt Helvetica,Arial,sans-serif; color:#B00; border:1pt solid #B00; display:inline-block; padding:2pt 8pt; margin-bottom:8pt}
+}
+@media (prefers-reduced-motion: reduce){
+  .status[data-busy]::after,.pending .chip,.reveal{animation:none}
+}
+@media (max-width:520px){
+  body{padding:12px 10px calc(44px + env(safe-area-inset-bottom))}
+  .sheet{border-radius:16px; box-shadow:5px 5px 0 var(--line)}
+  header.top{padding:16px 18px 0; flex-direction:column; align-items:flex-start; gap:4px}
+  .range{text-align:left}
+  main{padding:0 16px 18px}
+  .state{padding:22px 0}
+  h1,.h1{font-size:20px}
+  p.sub{font-size:12.5px}
+  .drop{padding:26px 16px}
+  .actions{flex-direction:column; align-items:stretch; gap:10px}
+  .actions button{width:100%}
+  .overall{flex-wrap:wrap; row-gap:10px}
+  .big-grade{font-size:31px; padding:10px 0; width:60px}
+  .row{padding:12px; min-height:112px}
+  .row-fill{grid-template-columns:46px 1fr; gap:12px}
+  .chip{font-size:16px; padding:7px 0}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .steps{max-width:none; padding:0 6px}
+}
+</style>
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": "WebApplication",
+ "name": "NightReport",
+ "url": "https://nightreport.app/",
+ "description": "Free, private CPAP data viewer. Reads the SD card data from a ResMed AirSense 10/11 in your browser and produces a plain-English therapy report card plus a printable summary for doctor visits. No upload, no account \u2014 data never leaves your device.",
+ "applicationCategory": "HealthApplication",
+ "operatingSystem": "Any (web browser)",
+ "browserRequirements": "Requires JavaScript",
+ "offers": {
+  "@type": "Offer",
+  "price": "0",
+  "priceCurrency": "USD"
+ },
+ "featureList": "AHI summary, mask leak analysis, pressure stability, usage and compliance, printable doctor summary, 100% client-side processing",
+ "isAccessibleForFree": true
+}
+</script>
+</head>
+<body>
+<div class="sheet">
+  <header class="top">
+    <div class="wordmark">Night<span>Report</span></div>
+    <div class="range" id="range"></div>
+  </header>
+  <canvas id="strip" width="1440" height="128" role="img" aria-label="Airway pressure strip chart"></canvas>
+
+  <main>
+    <section id="intro" class="state">
+      <div class="pill">100% private, runs in your browser</div>
+      <h1>Grade your CPAP therapy in seconds</h1>
+      <p class="sub">Reads the SD card data from a ResMed AirSense 10/11 and returns a plain-language
+        report card. All analysis runs in your browser. No upload, no account, and your therapy data never leaves your device.</p>
+      <div class="drop" id="drop" tabindex="0" role="button"
+           aria-label="Drop your CPAP data folder or zip here, or press Enter to browse">
+        <p>Drop your CPAP data here, or <span class="browse">click to browse</span></p>
+        <small>Folder or .zip, straight from the SD card or wherever you saved it.
+        Waveform (BRP) files are skipped automatically.</small>
+      </div>
+      <div class="actions">
+        <button id="demo" class="btn-text">See a sample report</button>
+      </div>
+      <details>
+        <summary>How do I get my data?</summary>
+        <div class="inner">
+          <p><strong>Works with:</strong> ResMed AirSense 10 and 11 (AirCurve very likely works too, same data format).</p>
+          <p><strong>Steps:</strong> with your machine idle (not during therapy), press the SD card in gently and it pops out.
+          Put it in a card reader. A basic USB or USB-C reader costs about $10 and works with phones too.
+          Choose the card's folder here (or zip it up in your Files app on mobile). Reading is completely safe and
+          changes nothing on the card. Pop it back in when you're done and therapy logging continues as normal.</p>
+          <p><strong>No card in your machine?</strong> ResMed machines only record detailed data while a card is inserted,
+          so tonight's the night to put one in. Any SD card up to 32 GB works.</p>
+          <p><strong>AirMini?</strong> The AirMini has no SD card. Its data goes only to ResMed's phone app,
+          so there's nothing for this tool to read.</p>
+          <p><strong>Different machine brand?</strong> Philips, Löwenstein and others use different formats this tool
+          can't read. OSCAR, a free desktop program, supports most machines and goes much deeper.</p>
+          <p><strong>Testing an unverified ResMed model</strong> (like an AirCurve)? Load your card, then copy a
+          debug report to share on GitHub. It contains only file structure and signal labels, never your
+          measurements, dates, or serial numbers.</p>
+          <div style="text-align:center; margin:18px 0 14px"><button id="debug-btn" type="button">Copy debug report</button></div>
+        </div>
+      </details>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+      <p class="fineprint">Your files are read and analyzed locally on this device and never uploaded or stored.
+      Turn off your wifi and the whole tool keeps working.
+      Site traffic is counted anonymously with Cloudflare Web Analytics: no cookies, no personal identifiers, no cross-site tracking.
+      Free and <a href="https://github.com/filbot/nightreport" rel="noopener">open source</a>, so every claim here is independently verifiable.</p>
+      <input type="file" id="dir-input" webkitdirectory multiple class="hidden">
+      <input type="file" id="zip-input" accept=".zip,application/zip" class="hidden">
+    </section>
+
+    <section id="loading" class="state hidden" aria-live="polite">
+      <h2 class="h1" style="text-align:center">Analyzing your therapy data</h2>
+      <div class="steps">
+        <div class="step" id="step-0"><span class="tick">✓</span>Reading SD card files</div>
+        <div class="step" id="step-1"><span class="tick">✓</span>Parsing therapy summary</div>
+        <div class="step" id="step-2"><span class="tick">✓</span>Analyzing recent nights</div>
+        <div class="step" id="step-3"><span class="tick">✓</span>Grading therapy</div>
+      </div>
+      <p class="status" id="load-status" data-busy="1"></p>
+    </section>
+
+    <section id="report" class="state hidden">
+      <div class="overall">
+        <div>
+          <div class="pill" id="report-pill">Your results</div>
+          <h2 class="h1" style="margin:0">Therapy report card</h2>
+          <div class="meta"><span id="meta">—</span><button class="info-btn" id="meta-info"
+            type="button" aria-label="About this data">i</button></div>
+        </div>
+        <div class="big-grade" id="overall">–</div>
+      </div>
+      <p class="gist" id="gist"></p>
+      <div id="rows"></div>
+      <div class="kpis" id="kpis"></div>
+      <dialog id="meta-dialog" aria-labelledby="meta-dialog-title">
+        <h2 id="meta-dialog-title">About your data</h2>
+        <p>Your machine writes a daily summary to its SD card, and the date range covers every
+        day found there. A night counts as <strong>used</strong> when the machine recorded any
+        therapy time that night.</p>
+        <p>The grades mostly look at your most recent 30 nights, and the detailed cards
+        (pressure, airway) look at the last 14. Older nights still count toward the totals.</p>
+        <form method="dialog"><button class="primary">Got it</button></form>
+      </dialog>
+      <div class="actions" style="margin-top:22px">
+        <button class="primary" id="print-doc">Print for your doctor →</button>
+        <button id="again" class="btn-text">Analyze new data</button>
+      </div>
+      <footer>
+        <div class="f-block">
+          <span class="f-label">Privacy</span>
+          Your therapy data never leaves your device. Analysis runs entirely in your browser. Nothing is
+          transmitted or stored, and everything works with your wifi turned off. Visits are counted anonymously
+          with Cloudflare Web Analytics: no cookies, no identifiers, no cross-site tracking.
+        </div>
+        <div class="f-block">
+          <span class="f-label">Not medical advice</span>
+          This is a descriptive summary of what your machine recorded. Take settings and treatment
+          questions to your sleep provider.
+        </div>
+        <div class="f-block">
+          <span class="f-label">Open source</span>
+          Free and independently verifiable.
+          <a href="https://github.com/filbot/nightreport" rel="noopener">view the source</a>.
+        </div>
+        <div class="f-tech" id="perf"></div>
+      </footer>
+    </section>
+  </main>
+</div>
+<div id="doctor" aria-hidden="true"></div>
+
+<script type="text/plain" id="worker-src">
+"use strict";
+const dec = new TextDecoder("latin1");
+const norm = s => s.toLowerCase().replace(/[^a-z0-9.]/g, "");
+
+function parseEDF(buf){
+  const h = dec.decode(new Uint8Array(buf, 0, 256));
+  const ns = parseInt(h.slice(252, 256));
+  const nRec = parseInt(h.slice(236, 244));
+  const recDur = parseFloat(h.slice(244, 252)) || 1;
+  const d = h.slice(168, 176), t = h.slice(176, 184);
+  let yy = parseInt(d.slice(6, 8)); yy += (yy < 85 ? 2000 : 1900);
+  const start = new Date(yy, parseInt(d.slice(3,5))-1, parseInt(d.slice(0,2)),
+    parseInt(t.slice(0,2)), parseInt(t.slice(3,5)), parseInt(t.slice(6,8)));
+  const sh = dec.decode(new Uint8Array(buf, 256, ns*256));
+  const F = (off, w, i) => sh.slice(off*ns + w*i, off*ns + w*(i+1));
+  const sig = [];
+  for (let i=0;i<ns;i++){
+    sig.push({
+      label: F(0,16,i).trim(),
+      physDim: F(96,8,i).trim(),
+      physMin: parseFloat(F(104,8,i)), physMax: parseFloat(F(112,8,i)),
+      digMin: parseFloat(F(120,8,i)), digMax: parseFloat(F(128,8,i)),
+      spr: parseInt(F(216,8,i))
+    });
+  }
+  const headerBytes = 256 + ns*256;
+  const recBytes = sig.reduce((a,s)=>a+s.spr*2, 0);
+  const realRecs = nRec > 0 ? nRec : Math.floor((buf.byteLength-headerBytes)/recBytes);
+  return { buf, start, recDur, nRec: realRecs, sig, headerBytes, recBytes };
+}
+
+function readSignal(edf, idx){
+  const s = edf.sig[idx];
+  const out = new Float64Array(edf.nRec * s.spr);
+  const gain = (s.physMax - s.physMin) / ((s.digMax - s.digMin) || 1);
+  let pre = 0;
+  for (let k=0;k<idx;k++) pre += edf.sig[k].spr*2;
+  const dv = new DataView(edf.buf);
+  for (let r=0;r<edf.nRec;r++){
+    const base = edf.headerBytes + r*edf.recBytes + pre;
+    for (let j=0;j<s.spr;j++){
+      out[r*s.spr+j] = (dv.getInt16(base+j*2, true) - s.digMin)*gain + s.physMin;
+    }
+  }
+  return out;
+}
+
+function findSig(edf, want, avoid){
+  let best = -1;
+  for (let i=0;i<edf.sig.length;i++){
+    const l = norm(edf.sig[i].label);
+    if (avoid && avoid.some(a=>l.includes(a))) continue;
+    if (l === want) return i;
+    if (best < 0 && l.includes(want)) best = i;
+  }
+  return best;
+}
+
+function percentile(arr, p){
+  if (!arr.length) return NaN;
+  const a = Float64Array.from(arr).sort();
+  const idx = (a.length-1)*p;
+  const lo = Math.floor(idx), hi = Math.ceil(idx);
+  return a[lo] + (a[hi]-a[lo])*(idx-lo);
+}
+
+function parseTALs(edf){
+  const bytes = new Uint8Array(edf.buf);
+  const events = [];
+  for (let r=0;r<edf.nRec;r++){
+    let off = edf.headerBytes + r*edf.recBytes;
+    for (const s of edf.sig){
+      const chunk = bytes.subarray(off, off + s.spr*2);
+      off += s.spr*2;
+      let i = 0;
+      while (i < chunk.length){
+        let j = i;
+        while (j < chunk.length && chunk[j] !== 0) j++;
+        if (j > i){
+          const tal = dec.decode(chunk.subarray(i, j));
+          const m = tal.match(/^([+-][\d.]+)(?:\x15([\d.]+))?\x14([\s\S]*)$/);
+          if (m){
+            const onset = parseFloat(m[1]);
+            const dur = m[2] ? parseFloat(m[2]) : null;
+            for (const txt of m[3].split("\x14")){
+              const tt = txt.trim();
+              if (tt && !/^recording/i.test(tt)) events.push({ onset, dur, text: tt });
+            }
+          }
+        }
+        i = j + 1;
+      }
+    }
+  }
+  return events;
+}
+
+function analyzeSTR(edf){
+  const day = name => { const i = findSig(edf, name); return i<0 ? null : readSignal(edf, i); };
+  const durIdx = findSig(edf, "duration") >= 0 ? findSig(edf, "duration") : findSig(edf, "dur");
+  if (durIdx < 0) throw new Error("STR.edf: no Duration signal found");
+  let dur = readSignal(edf, durIdx);
+  const med = percentile(Array.from(dur).filter(v=>v>0), 0.5);
+  const durHrs = v => med > 1000 ? v/3600 : v/60;
+  const ahi = day("ahi"), oai = day("oai"), cai = day("cai"), hi = day("hi");
+  let leak95 = day("leak.95");
+  const p50 = day("maskpress.50"), p95 = day("maskpress.95");
+  const li = findSig(edf, "leak.95");
+  const leakScale = (li>=0 && /l\/s/i.test(edf.sig[li].physDim)) ? 60 :
+                    (li>=0 && edf.sig[li].physMax < 3 ? 60 : 1);
+
+  const n = dur.length;
+  const usedIdx = [];
+  for (let i=0;i<n;i++) if (dur[i] > 0) usedIdx.push(i);
+  const last30 = usedIdx.slice(-30);
+  const pick = (arr, idx) => arr ? idx.map(i=>arr[i]) : [];
+  const mean = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : NaN;
+
+  const l30leak = pick(leak95, last30).map(v=>v*leakScale);
+  const first = new Date(edf.start); const lastD = new Date(edf.start); lastD.setDate(lastD.getDate()+n-1);
+
+  // Compliance: % of the last 30 calendar days with >= 4 hours of use
+  let comp = 0;
+  const c0 = Math.max(0, n-30);
+  for (let i=c0;i<n;i++) if (durHrs(dur[i]) >= 4) comp++;
+  const compliancePct = Math.round(comp/(n-c0)*100);
+
+  // Current settings (last record)
+  const lastOf = name => { const i = findSig(edf, name); if (i<0) return null; const a = readSignal(edf,i); return a[a.length-1]; };
+  const modeV = lastOf("mode");
+  const settings = {
+    mode: modeV===1 ? "AutoSet" : modeV===0 ? "CPAP" : (modeV==null ? "—" : "Mode "+modeV),
+    minPress: lastOf("s.a.minpress"), maxPress: lastOf("s.a.maxpress"),
+    epr: lastOf("s.epr.level")
+  };
+
+  return {
+    compliancePct, settings,
+    totalDays: n, usedNights: usedIdx.length,
+    from: first.toISOString().slice(0,10), to: lastD.toISOString().slice(0,10),
+    avgHrs: mean(pick(dur, last30).map(durHrs)),
+    avgHrsAll: mean(pick(dur, usedIdx).map(durHrs)),
+    ahiMedian30: percentile(pick(ahi, last30), 0.5),
+    oaiMed: percentile(pick(oai, last30), 0.5),
+    caiMed: percentile(pick(cai, last30), 0.5),
+    hiMed: percentile(pick(hi, last30), 0.5),
+    p50Med: percentile(pick(p50, last30), 0.5),
+    p95Med: percentile(pick(p95, last30), 0.5),
+    leakBadNights30: l30leak.filter(v=>v>24).length,
+    leak95Med: percentile(l30leak, 0.5),
+    n30: last30.length
+  };
+}
+
+function analyzePLD(edf){
+  const pi = findSig(edf, "press.2s", ["mask"]) >= 0 ? findSig(edf, "press.2s", ["mask"]) : findSig(edf, "press", ["mask"]);
+  const fi = findSig(edf, "flowlim");
+  const li = findSig(edf, "leak");
+  if (pi < 0) return null;
+  const press = readSignal(edf, pi);
+  const fs = edf.sig[pi].spr / edf.recDur;
+  const win = Math.max(2, Math.round(300*fs));
+  let swings = 0, wins = 0;
+  for (let i=0;i+win<=press.length;i+=win){
+    let mn = Infinity, mx = -Infinity;
+    for (let j=i;j<i+win;j++){ const v=press[j]; if(v<mn)mn=v; if(v>mx)mx=v; }
+    if (mx-mn > 2) swings++;
+    wins++;
+  }
+  let fl95 = 0, flHi = 0;
+  if (fi >= 0){
+    const fl = readSignal(edf, fi);
+    fl95 = percentile(fl, 0.95);
+    let c=0; for (const v of fl) if (v>0.3) c++;
+    flHi = c/fl.length;
+  }
+  let leakMin = 0;
+  if (li >= 0){
+    const scale = /l\/s/i.test(edf.sig[li].physDim) || edf.sig[li].physMax < 3 ? 60 : 1;
+    const lk = readSignal(edf, li);
+    let c=0; for (const v of lk) if (v*scale > 24) c++;
+    leakMin = c / (edf.sig[li].spr/edf.recDur) / 60;
+  }
+  const step = Math.max(1, Math.floor(press.length/600));
+  const trace = [];
+  for (let i=0;i<press.length;i+=step) trace.push(Math.round(press[i]*100)/100);
+  return { swingPct: wins?swings/wins:0, fl95, flHiPct: flHi, leakMin,
+           hours: press.length/fs/3600, trace, pMin: Math.min.apply(null,trace), pMax: Math.max.apply(null,trace) };
+}
+
+function oximetryPresent(edf){
+  for (let i=0;i<edf.sig.length;i++){
+    if (/pulse|spo2/i.test(edf.sig[i].label)){
+      const v = readSignal(edf, i);
+      for (const x of v) if (x > 20 && x < 250) return true;
+    }
+  }
+  return false;
+}
+
+async function runPipeline(entries, post, yieldFn){
+  const strEnt = entries.find(x=>/(^|\/)STR\.edf$/i.test(x.rel));
+  if (!strEnt) throw new Error("No STR.edf found. Is this a ResMed SD card?");
+  post("status", "Reading summary (STR.edf)…");
+  post("summary", analyzeSTR(parseEDF(strEnt.buf)));
+
+  const byDate = {};
+  for (const x of entries){
+    const m = x.rel.match(/(\d{8})_\d{6}_(PLD|EVE|SA2|SAD)\.edf$/i);
+    if (m) (byDate[m[1]] ||= {})[m[2].toUpperCase()] = x;
+  }
+  const dates = Object.keys(byDate).sort().slice(-14);
+  const nights = [];
+  const events = { oa:0, ca:0, hyp:0, other:0 };
+  let oximetry = null;
+  let lastTrace = null;
+  for (let i=0;i<dates.length;i++){
+    const d = dates[i], g = byDate[d];
+    post("status", "Analyzing night " + (i+1) + "/" + dates.length + " (" + d.slice(0,4) + "-" + d.slice(4,6) + "-" + d.slice(6,8) + ")…");
+    if (yieldFn) await yieldFn();
+    if (g.PLD){
+      const r = analyzePLD(parseEDF(g.PLD.buf));
+      if (r){ nights.push(r); lastTrace = r; }
+    }
+    if (g.EVE){
+      for (const ev of parseTALs(parseEDF(g.EVE.buf))){
+        const t = ev.text.toLowerCase();
+        if (t.includes("obstructive")) events.oa++;
+        else if (t.includes("central")) events.ca++;
+        else if (t.includes("hypopnea")) events.hyp++;
+        else events.other++;
+      }
+    }
+    const sa = g.SA2 || g.SAD;
+    if (sa && oximetry !== true) oximetry = oximetryPresent(parseEDF(sa.buf));
+  }
+  const mean = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : NaN;
+  post("nights", {
+    analyzed: nights.length,
+    swingPct: mean(nights.map(n=>n.swingPct)),
+    flHiPct: mean(nights.map(n=>n.flHiPct)),
+    leakMinAvg: mean(nights.map(n=>n.leakMin)),
+    events,
+    oximetry: oximetry === true,
+    trace: lastTrace ? { points: lastTrace.trace, pMin: lastTrace.pMin, pMax: lastTrace.pMax } : null
+  });
+}
+</script>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const workerSrc = $("worker-src").textContent;
+let worker = null;
+let RUN = null;
+
+const strip = $("strip"), ctx = strip.getContext("2d");
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+let anim = null, phase = 0, breathe = 0.045;
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function drawIdle(){
+  const w = strip.width, h = strip.height;
+  ctx.clearRect(0,0,w,h);
+  gridlines(w,h);
+  ctx.beginPath();
+  ctx.strokeStyle = css("--graph"); ctx.lineWidth = 2.5; ctx.lineJoin = "round";
+  for (let x=0;x<=w;x+=4){
+    const breath = Math.sin(x/110 + phase);
+    const y = h/2 - breath*Math.abs(breath)*h*0.28;
+    x===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+  phase += breathe;
+  if (!reduced) anim = requestAnimationFrame(drawIdle);
+}
+function gridlines(w,h){
+  ctx.strokeStyle = css("--rule"); ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x=0;x<w;x+=72){ ctx.moveTo(x,0); ctx.lineTo(x,h); }
+  ctx.moveTo(0,h/2); ctx.lineTo(w,h/2);
+  ctx.stroke();
+}
+function renderTraceFrame(tr, frac){
+  const w = strip.width, h = strip.height;
+  ctx.clearRect(0,0,w,h);
+  gridlines(w,h);
+  const span = Math.max(1, tr.pMax - tr.pMin);
+  const n = Math.max(2, Math.round(tr.points.length * frac));
+  ctx.beginPath();
+  ctx.strokeStyle = css("--graph"); ctx.lineWidth = 2; ctx.lineJoin = "round";
+  for (let i=0;i<n;i++){
+    const x = i/(tr.points.length-1)*w;
+    const y = h - 14 - (tr.points[i] - tr.pMin)/span*(h-28);
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+}
+function drawTrace(tr){
+  cancelAnimationFrame(anim);
+  renderTraceFrame(tr, 1);
+}
+drawIdle();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", ()=>{ if(anim) drawIdle(); });
+
+const KEEP = f => /(^|\/)STR\.edf$/i.test(f) || /_(PLD|EVE|SA2|SAD)\.edf$/i.test(f);
+const status = (msg, busy) => {
+  const el = (typeof load !== "undefined" && load) ? $("load-status") : $("status");
+  el.textContent = msg; el.dataset.busy = busy?1:0;
+};
+
+function recentSet(names){
+  const dates = new Set();
+  for (const n of names){
+    const m = n.match(/(\d{8})_\d{6}_(PLD|EVE|SA2|SAD)\.edf$/i);
+    if (m) dates.add(m[1]);
+  }
+  const keepDates = new Set([...dates].sort().slice(-14));
+  const keep = new Set();
+  for (const n of names){
+    if (/(^|\/)STR\.edf$/i.test(n)) keep.add(n);
+    const m = n.match(/(\d{8})_\d{6}_(PLD|EVE|SA2|SAD)\.edf$/i);
+    if (m && keepDates.has(m[1])) keep.add(n);
+  }
+  return keep;
+}
+
+async function chooseData(){
+  if (window.showDirectoryPicker){
+    try {
+      const dir = await showDirectoryPicker();
+      const files = [];
+      await walkFS(dir, "", files);
+      prepare(files, null);
+    } catch(e){ if (e.name !== "AbortError") status("⚠ " + e.message); }
+  } else if (matchMedia("(pointer:coarse)").matches){
+    $("zip-input").click();
+  } else $("dir-input").click();
+}
+$("dir-input").onchange = e => prepare([...e.target.files]
+  .map(f=>({rel:f.webkitRelativePath||f.name, file:f})), null);
+$("zip-input").onchange = e => e.target.files[0] && prepare(null, e.target.files[0]);
+
+async function walkFS(dir, path, out){
+  for await (const [name, handle] of dir.entries()){
+    const rel = path ? path+"/"+name : name;
+    if (handle.kind === "file"){ out.push({rel, file: await handle.getFile()}); }
+    else if (!/^\./.test(name)) await walkFS(handle, rel, out);
+  }
+}
+
+const drop = $("drop");
+drop.onclick = chooseData;
+drop.onkeydown = e => { if (e.key==="Enter"||e.key===" "){ e.preventDefault(); chooseData(); } };
+["dragenter","dragover"].forEach(t=>drop.addEventListener(t, e=>{e.preventDefault(); drop.classList.add("over");}));
+["dragleave","drop"].forEach(t=>drop.addEventListener(t, e=>{e.preventDefault(); drop.classList.remove("over");}));
+drop.addEventListener("drop", async e => {
+  const zip = [...e.dataTransfer.files].find(f=>/\.zip$/i.test(f.name));
+  if (zip) return prepare(null, zip);
+  const items = [...e.dataTransfer.items];
+  const files = [];
+  await Promise.all(items.map(it => it.webkitGetAsEntry && walkEntry(it.webkitGetAsEntry(), files)));
+  prepare(files, null);
+});
+function walkEntry(entry, out){
+  return new Promise(res => {
+    if (!entry) return res();
+    if (entry.isFile){
+      entry.file(f => { out.push({rel: entry.fullPath.slice(1), file:f}); res(); }, res);
+    } else {
+      const rd = entry.createReader();
+      const all = [];
+      (function read(){ rd.readEntries(async es => {
+        if (!es.length){ await Promise.all(all.map(x=>walkEntry(x,out))); return res(); }
+        all.push(...es); read();
+      }, res); })();
+    }
+  });
+}
+
+async function extractZip(file){
+  if (!window.DecompressionStream) throw new Error("This browser can't unzip natively. Please drop the unzipped folder instead.");
+  const tailLen = Math.min(file.size, 65558);
+  const tail = new DataView(await file.slice(file.size - tailLen).arrayBuffer());
+  let eocd = -1;
+  for (let i = tail.byteLength - 22; i >= 0; i--)
+    if (tail.getUint32(i, true) === 0x06054b50){ eocd = i; break; }
+  if (eocd < 0) throw new Error("Not a valid .zip file");
+  const count = tail.getUint16(eocd+10, true);
+  const cdSize = tail.getUint32(eocd+12, true);
+  const cdOff = tail.getUint32(eocd+16, true);
+  const cdBuf = await file.slice(cdOff, cdOff+cdSize).arrayBuffer();
+  const cd = new DataView(cdBuf);
+  const td = new TextDecoder();
+  const found = [], allNames = [];
+  let p = 0;
+  for (let i=0;i<count && p+46<=cdBuf.byteLength;i++){
+    if (cd.getUint32(p, true) !== 0x02014b50) break;
+    const method = cd.getUint16(p+10, true);
+    const compSize = cd.getUint32(p+20, true);
+    const uncompSize = cd.getUint32(p+24, true);
+    const nameLen = cd.getUint16(p+28, true);
+    const extraLen = cd.getUint16(p+30, true);
+    const commentLen = cd.getUint16(p+32, true);
+    const localOff = cd.getUint32(p+42, true);
+    const name = td.decode(new Uint8Array(cdBuf, p+46, nameLen));
+    if (!name.endsWith("/")) allNames.push({n:name, size:uncompSize});
+    if (KEEP(name) && compSize < 0xFFFFFFFF) found.push({name, method, compSize, localOff});
+    p += 46 + nameLen + extraLen + commentLen;
+  }
+  const keep = recentSet(found.map(f=>f.name));
+  const out = [];
+  let done = 0;
+  for (const f of found){
+    if (!keep.has(f.name)) continue;
+    status("Extracting " + (++done) + "…", true);
+    const lh = new DataView(await file.slice(f.localOff, f.localOff+30).arrayBuffer());
+    if (lh.getUint32(0,true) !== 0x04034b50) throw new Error("Corrupt zip entry: " + f.name);
+    const dataOff = f.localOff + 30 + lh.getUint16(26,true) + lh.getUint16(28,true);
+    const blob = file.slice(dataOff, dataOff + f.compSize);
+    let buf;
+    if (f.method === 0) buf = await blob.arrayBuffer();
+    else if (f.method === 8)
+      buf = await new Response(blob.stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer();
+    else throw new Error("Unsupported zip compression (method " + f.method + ")");
+    out.push({rel: f.name, buf});
+  }
+  return { entries: out, names: allNames };
+}
+
+let NAMES = null, ENTRIES = null;
+
+// Pipeline stage 1: identify the card before reading any data
+function detectDevice(names){
+  if (names.some(n=>/(^|\/)STR\.edf$/i.test(n))) return "resmed";
+  if (names.some(n=>/(^|\/)P-?Series(\/|$)/i.test(n) || /(^|\/)PROP\.TXT$/i.test(n))) return "philips";
+  if (names.some(n=>/\.edf$/i.test(n))) return "resmed-partial";
+  return "unknown";
+}
+const DEVICE_MSG = {
+  "philips": "This looks like a Philips card. NightReport reads ResMed cards only. OSCAR, a free desktop app, reads this card fully.",
+  "resmed-partial": "Found EDF files but no STR.edf. Choose the top level of the SD card, the folder that contains STR.edf and DATALOG.",
+  "unknown": "No CPAP data recognized in that selection. Choose the top level of the SD card, or open \"How do I get my data?\" below."
+};
+
+async function prepare(files, zip){
+  try {
+    RUN = { t0: performance.now() }; LAST.demo = false;
+    startLoading();
+    let entries, names;
+    if (zip){
+      status("Reading zip…", true);
+      const r = await extractZip(zip);
+      entries = r.entries;
+      names = r.names;
+    } else {
+      if (!files || !files.length) return failLoading(DEVICE_MSG["unknown"]);
+      names = files.map(f=>({n:f.rel, size:f.file.size}));
+      const kept = files.filter(f=>KEEP(f.rel));
+      const keep = recentSet(kept.map(f=>f.rel));
+      const toRead = kept.filter(f=>keep.has(f.rel));
+      entries = [];
+      for (let i=0;i<toRead.length;i++){
+        status("Reading file " + (i+1) + "/" + toRead.length + "…", true);
+        entries.push({ rel: toRead[i].rel, buf: await toRead[i].file.arrayBuffer() });
+      }
+    }
+    NAMES = names;
+    const device = detectDevice(names.map(o=>o.n));
+    if (device !== "resmed") return failLoading(DEVICE_MSG[device]);
+    if (!entries.some(x=>/(^|\/)STR\.edf$/i.test(x.rel)))
+      return failLoading(DEVICE_MSG["resmed-partial"]);
+    ENTRIES = entries;
+    RUN.files = entries.length;
+    RUN.mb = Math.round(entries.reduce((a,x)=>a+x.buf.byteLength,0)/1048576*10)/10;
+    analyze(entries);
+  } catch(err){ load ? failLoading(err.message || String(err)) : status("⚠ " + (err.message || err)); }
+}
+
+function analyze(entries){
+  const boot = workerSrc +
+    "\nself.onmessage = async e => {" +
+    "  try { await runPipeline(e.data.entries, (t,d)=>self.postMessage({t,data:d}), null); }" +
+    "  catch(err){ self.postMessage({t:'error',data:err.message||String(err)}); }" +
+    "};";
+  let gotMsg = false;
+  try {
+    if (worker) worker.terminate();
+    worker = new Worker(URL.createObjectURL(new Blob([boot], {type:"text/javascript"})));
+    worker.onmessage = e => { gotMsg = true; onMsg(e.data); };
+    worker.onerror = ev => {
+      ev.preventDefault();
+      if (!gotMsg){ worker.terminate(); runInline(entries); }
+      else status("⚠ " + (ev.message || "Worker error"));
+    };
+    worker.postMessage({ entries });
+  } catch(e){ runInline(entries); }
+}
+
+async function runInline(entries){
+  status("Running analysis…", true);
+  try {
+    const runPipeline = new Function(workerSrc + "; return runPipeline;")();
+    await runPipeline(entries, (t,d)=>onMsg({t,data:d}),
+      () => new Promise(r=>setTimeout(r,0)));
+  } catch(err){ status("⚠ " + (err.message || err)); }
+}
+
+const MIN_MS = 1100;
+let load = null;
+
+function startLoading(){
+  load = { t0: performance.now(), timers: [], buffered: {}, released: false };
+  for (let i=0;i<4;i++) $("step-"+i).className = "step";
+  $("load-status").textContent = "";
+  breathe = 0.11;
+  swapSections($("intro"), $("loading"));
+  const cadence = 240;
+  for (let i=0;i<4;i++){
+    load.timers.push(setTimeout(()=>{
+      if (i>0) $("step-"+(i-1)).className = "step done";
+      $("step-"+i).className = "step active";
+    }, i*cadence));
+  }
+}
+function failLoading(msg){
+  if (load) load.timers.forEach(clearTimeout);
+  load = null;
+  breathe = 0.045;
+  swapSections($("loading"), $("intro"), ()=>status("⚠ " + msg));
+}
+function maybeRelease(){
+  if (!load || !load.buffered.nights || load.released) return;
+  load.released = true;
+  const wait = Math.max(0, MIN_MS - (performance.now() - load.t0));
+  setTimeout(()=>{
+    load.timers.forEach(clearTimeout);
+    for (let i=0;i<4;i++) $("step-"+i).className = "step done";
+    breathe = 0.045;
+    const b = load.buffered;
+    setTimeout(()=>{
+      renderSummary(b.summary);
+      renderNights(b.nights);
+    }, 120);
+  }, wait);
+}
+
+function onMsg(m){
+  if (m.t === "status"){ if (load) $("load-status").textContent = m.data; else status(m.data, true); }
+  else if (m.t === "error"){ load ? failLoading(m.data) : status("⚠ " + m.data); }
+  else if (m.t === "summary"){ load ? load.buffered.summary = m.data : renderSummary(m.data); }
+  else if (m.t === "nights"){
+    if (RUN && RUN.t0) RUN.ms = Math.round(performance.now() - RUN.t0);
+    if (load){ load.buffered.nights = m.data; maybeRelease(); }
+    else renderNights(m.data);
+  }
+}
+
+const EASE = "cubic-bezier(.22,1,.36,1)";
+function swapSections(hideEl, showEl, after){
+  const go = () => { hideEl.classList.add("hidden"); showEl.classList.remove("hidden"); if (after) after(); };
+  if (document.startViewTransition && !reduced) document.startViewTransition(go);
+  else go();
+}
+function setOverall(g){
+  const el = $("overall");
+  const gist = $("gist");
+  if (PTS[g] != null){
+    el.className = "big-grade " + gradeClass(g);
+    gist.textContent =
+      PTS[g] >= 3.7 ? "Your therapy is working well. Nothing here needs attention." :
+      PTS[g] >= 2.7 ? "Your therapy is mostly on track. A couple of areas are worth a look below." :
+      "Some areas below need attention. Worth bringing up with your sleep provider.";
+  }
+  if (el.textContent === g) return;
+  const firstSet = el.textContent === "–";
+  el.textContent = g;
+  if (!reduced && !firstSet) el.animate(
+    [{transform:"scale(.9)", opacity:.5}, {transform:"scale(1)", opacity:1}],
+    {duration:260, easing:EASE});
+}
+
+const PTS = {"A+":4.3, "A":4, "A−":3.7, "B+":3.3, "B":3, "B−":2.7, "C+":2.3, "C":2, "D":1};
+const scale = (v, tiers) => { for (const [max, g] of tiers) if (v <= max) return g; return "D"; };
+function overallGrade(grades){
+  const g = grades.filter(x=>x && x!=="na");
+  if (!g.length) return "–";
+  const avg = g.reduce((a,x)=>a+PTS[x],0)/g.length;
+  let best = "D", diff = 9;
+  for (const [k,v] of Object.entries(PTS)) if (Math.abs(v-avg) < diff){ diff = Math.abs(v-avg); best = k; }
+  return best;
+}
+const fmt = (v,d=1) => Number.isFinite(v) ? v.toFixed(d) : "—";
+
+let G = {}, stagger = 0;
+function renderSummary(s){
+  LAST.s = s; LAST.d = null;
+  $("rows").innerHTML = ""; $("kpis").innerHTML = ""; G = {}; stagger = 0;
+  const from = $("loading").classList.contains("hidden") ? $("intro") : $("loading");
+  if (load){ load.timers.forEach(clearTimeout); load = null; }
+  $("load-status").dataset.busy = 0;
+  from.classList.add("hidden");
+  $("report").classList.remove("hidden");
+  buildSummary(s);
+}
+function monthYear(iso){
+  const d = new Date(iso + "T12:00:00");
+  return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+}
+function buildSummary(s){
+  const p = $("report-pill");
+  p.textContent = LAST.demo ? "Sample report (not your data)" : "Your results";
+  $("range").textContent = "";
+  $("meta").textContent = "AirSense · " + monthYear(s.from) + " – " + monthYear(s.to) +
+    " · " + s.usedNights + " of " + s.totalDays + " nights used";
+
+  G.ahi = scale(s.ahiMedian30, [[1,"A+"],[2,"A"],[3.5,"A−"],[5,"B"],[10,"C"]]);
+  G.adherence = s.avgHrs>=7 ? "A" : s.avgHrs>=6 ? "B+" : s.avgHrs>=4 ? "B−" : "C";
+  if (s.usedNights/s.totalDays >= 0.95 && G.adherence==="A") G.adherence = "A+";
+  const leakFrac = s.n30 ? s.leakBadNights30/s.n30 : 0;
+  G.leak = scale(leakFrac, [[0,"A"],[0.13,"B+"],[0.25,"B−"],[0.4,"C+"]]);
+
+  row("ahi", G.ahi, "Breathing interruptions",
+    "How many times an hour your breathing paused or went shallow while you slept. " +
+    "Doctors consider under 5 well controlled, and you averaged " + fmt(s.ahiMedian30) + ".",
+    "blocked airway " + fmt(s.oaiMed) + " · signal-related " + fmt(s.caiMed) + " · shallow " + fmt(s.hiMed) + " per hour (AHI)");
+  row("stability", null, "Steady air pressure",
+    "The machine held a smooth, even pressure instead of jumping around. Big swings can " +
+    "disturb sleep without you noticing. Yours swung noticeably in only 0% of the night (last 14 nights).", null, true);
+  row("flowlim", null, "Open airway",
+    "How freely air flowed through your airway. A narrowed airway makes breathing harder " +
+    "even without a full pause. Yours was restricted about 0.0% of the night.",
+    "recent pauses: 0 blocked airway · 0 signal-related · 0 shallow", true);
+  row("leak", G.leak, "Mask fit",
+    s.leakBadNights30 === 0
+      ? "Your mask kept a good seal. Barely any air escaped around the edges in the last 30 nights."
+      : "On " + s.leakBadNights30 + " of the last " + s.n30 + " nights enough air escaped around the mask to matter. Often just a strap or sleeping-position thing.",
+    "typical worst-case leak " + fmt(s.leak95Med) + " L/min · limit is 24");
+  row("adherence", G.adherence, "Nightly habit",
+    "You slept with the machine " + fmt(s.avgHrs) + " hours a night on average over the last 30 nights, " +
+    "and you've used it " + s.usedNights + " of " + s.totalDays + " nights overall. Consistency is what makes the therapy work.",
+    "used 4+ hours on " + s.compliancePct + "% of the last 30 nights (the usual insurance bar is 70%)");
+  row("oximetry", "na", "Oxygen and pulse",
+    "Your machine can also track blood oxygen and heart rate, but only with a small fingertip " +
+    "sensor attached. None is connected, so there's nothing to grade.", null, true);
+
+  kpi("Pauses per hour", fmt(s.ahiMedian30));
+  kpi("Hrs/night (30d)", fmt(s.avgHrs));
+  kpi("Typical pressure", fmt(s.p50Med));
+  kpi("Pressure peak", fmt(s.p95Med));
+  setOverall(overallGrade([G.ahi, G.adherence, G.leak]));
+}
+
+function renderNights(d){
+  LAST.d = d; buildDoctor();
+  if (d.analyzed){
+    G.stability = scale(d.swingPct, [[0.05,"A"],[0.10,"A−"],[0.20,"B"],[0.35,"C"]]);
+    update("stability", G.stability, "Steady air pressure",
+      "The machine held a smooth, even pressure instead of jumping around. Big swings can " +
+      "disturb sleep without you noticing. Yours swung noticeably in only " +
+      Math.round(d.swingPct*100) + "% of the night (last " + d.analyzed + " nights).", null);
+    G.flowlim = scale(d.flHiPct, [[0.01,"A"],[0.03,"A−"],[0.06,"B"],[0.12,"C"]]);
+    update("flowlim", G.flowlim, "Open airway",
+      "How freely air flowed through your airway. A narrowed airway makes breathing harder " +
+      "even without a full pause. Yours was restricted about " + (d.flHiPct*100).toFixed(1) + "% of the night.",
+      "recent pauses: " + d.events.oa + " blocked airway · " + d.events.ca + " signal-related · " + d.events.hyp + " shallow");
+  } else {
+    update("stability", "na", "Steady air pressure", "No nightly detail files found. Your machine may not have had the SD card inserted overnight. Pop it in tonight and detailed data starts recording.", null);
+    update("flowlim", "na", "Open airway", "No nightly detail files found, so this can't be graded yet.", null);
+  }
+  update("oximetry", d.oximetry ? "A" : "na", "Oxygen and pulse",
+    d.oximetry ? "A fingertip sensor is attached and recording your blood oxygen and heart rate overnight."
+               : "Your machine can also track blood oxygen and heart rate, but only with a small fingertip sensor attached. None is connected, so there's nothing to grade.",
+    null, !d.oximetry);
+  setOverall(overallGrade([G.ahi, G.adherence, G.leak, G.stability, G.flowlim]));
+  if (d.trace){ drawTrace(d.trace); $("range").textContent = "Last night\u2019s air pressure"; }
+  if (RUN && RUN.files)
+    $("perf").textContent = RUN.files + " files · " + RUN.mb + " MB · parsed in " + (RUN.ms || Math.round(performance.now()-RUN.t0)) + " ms";
+  else if (d.perf)
+    $("perf").textContent = d.perf.files + " files · " + d.perf.mb + " MB · " + d.perf.ms + " ms";
+  status("");
+}
+
+function rowHTML(grade, title, desc, val, notRecorded){
+  return '<div class="chip ' + (grade==="na"?"na":"") + '">' + (grade==="na"?"—":(grade||"·")) + '</div>' +
+    '<div><h2>' + title + (notRecorded?'<span class="badge">Not recorded</span>':"") + '</h2>' +
+    '<p>' + desc + '</p>' + (val?'<div class="val">'+val+'</div>':"") + '</div>';
+}
+function gradeClass(g){
+  if (!g) return "grade-nodata";
+  if (g === "na") return "grade-nodata";
+  if (PTS[g] >= 3.7) return "grade-good";
+  if (PTS[g] >= 2.7) return "grade-ok";
+  return "grade-watch";
+}
+function row(id, grade, title, desc, val, pending){
+  const el = document.createElement("div");
+  el.className = "row " + (pending ? "grade-nodata" : gradeClass(grade));
+  el.id = "row-" + id;
+  el.innerHTML = '<div class="row-fill">' + rowHTML(grade, title, desc, val, false) + '</div>';
+  $("rows").appendChild(el);
+}
+function update(id, grade, title, desc, val, notRecorded){
+  const el = $("row-"+id);
+  el.classList.remove("pending","grade-nodata","grade-good","grade-ok","grade-watch");
+  el.classList.add(gradeClass(grade));
+  el.firstElementChild.innerHTML = rowHTML(grade, title, desc, val, notRecorded);
+}
+function kpi(label, value){
+  const el = document.createElement("div");
+  el.className = "kpi";
+  el.innerHTML = '<label>' + label + '</label><output>' + value + '</output>';
+  $("kpis").appendChild(el);
+}
+
+// Debug report: file structure and signal labels only. No measurements,
+// no dates, no device serials. Safe to paste in a public GitHub issue.
+function edfMeta(buf){
+  try {
+    const td = new TextDecoder("latin1");
+    const h = td.decode(new Uint8Array(buf, 0, 256));
+    const ns = parseInt(h.slice(252,256));
+    const type = h.slice(192,197).trim() || "EDF";
+    const nRec = parseInt(h.slice(236,244));
+    const recDur = h.slice(244,252).trim();
+    const sh = td.decode(new Uint8Array(buf, 256, ns*256));
+    const sigs = [];
+    for (let i=0;i<ns;i++)
+      sigs.push(sh.slice(16*i,16*(i+1)).trim() + " (" + sh.slice(96*ns+8*i,96*ns+8*(i+1)).trim() +
+                ", " + sh.slice(216*ns+8*i,216*ns+8*(i+1)).trim() + "/rec)");
+    return "  " + type + " · " + nRec + " records × " + recDur + "s · signals: " + sigs.join("; ");
+  } catch(e){ return "  (header unreadable: " + e.message + ")"; }
+}
+const maskName = n => n.replace(/\d{8}[_-]?\d{6}/g, "DATE_TIME").replace(/\d{8}/g, "DATE");
+function buildDebugReport(){
+  if (!NAMES) return null;
+  const L = ["NightReport debug report (structure only: no measurements, dates, or serials)",
+             "UA: " + navigator.userAgent,
+             "Detected: " + detectDevice(NAMES.map(o=>o.n)),
+             "Files (" + NAMES.length + "):"];
+  for (const o of [...NAMES].sort((a,b)=>a.n.localeCompare(b.n)).slice(0,300))
+    L.push("  " + maskName(o.n) + "  " + (o.size!=null ? Math.round(o.size/1024)+" KB" : ""));
+  if (ENTRIES){
+    L.push("Parsed EDF headers:");
+    for (const e of ENTRIES){ L.push(" " + maskName(e.rel)); L.push(edfMeta(e.buf)); }
+  }
+  return L.join("\n");
+}
+$("debug-btn").onclick = async () => {
+  const r = buildDebugReport();
+  if (!r) return status("Load your SD card data first, then copy the debug report.");
+  try { await navigator.clipboard.writeText(r); status("Debug report copied. Paste it into a GitHub issue."); }
+  catch(e){
+    const ta = document.createElement("textarea");
+    ta.value = r; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); ta.remove();
+    status("Debug report copied. Paste it into a GitHub issue.");
+  }
+};
+
+if (location.hash === "#demo") setTimeout(()=>$("demo").click(), 150);
+
+if (matchMedia("(pointer:coarse)").matches){
+  drop.querySelector("p").textContent = "Tap to choose your CPAP data";
+  drop.querySelector("small").textContent = "A .zip of the card from your Files app works great. Waveform (BRP) files are skipped automatically.";
+}
+
+$("again").onclick = () => {
+  swapSections($("report"), $("intro"), () => {
+    $("rows").innerHTML = ""; $("kpis").innerHTML = ""; G = {}; RUN = null;
+    $("range").textContent = ""; status("");
+    phase = 0; cancelAnimationFrame(anim); drawIdle();
+  });
+};
+
+const LAST = { s:null, d:null, demo:false };
+function buildDoctor(){
+  const s = LAST.s; if (!s) return;
+  const d = LAST.d;
+  const f1 = v => Number.isFinite(v) ? v.toFixed(1) : "—";
+  const today = new Date().toISOString().slice(0,10);
+  const set = s.settings || {};
+  const range = (set.minPress!=null && set.maxPress!=null) ? f1(set.minPress)+"–"+f1(set.maxPress)+" cmH2O" : "—";
+  let rows = "";
+  const tr = (k, v, g) => rows += "<tr><td>"+k+(g?'<span class="gloss">'+g+"</span>":"")+"</td><td>"+v+"</td></tr>";
+  tr("Usage", f1(s.avgHrs)+" h/night average (last 30 nights) · "+s.usedNights+" of "+s.totalDays+" nights used overall",
+     "how often and how long the device was used");
+  tr("Compliance (≥ 4 h/night)", s.compliancePct+"% of the last 30 nights",
+     "share of recent nights meeting the common 4-hour threshold");
+  tr("AHI (median, last 30 nights)", f1(s.ahiMedian30)+" events/h · OA "+f1(s.oaiMed)+" · CA "+f1(s.caiMed)+" · H "+f1(s.hiMed),
+     "apnea–hypopnea index; breathing interruptions per hour of use");
+  tr("Leak (95th percentile, median)", f1(s.leak95Med)+" L/min · "+
+     (s.leakBadNights30===0 ? "no nights above the 24 L/min large-leak threshold" :
+      s.leakBadNights30+" of "+s.n30+" recent nights above the 24 L/min threshold"),
+     "unintentional mask leak");
+  tr("Pressure (last 30 nights)", "median "+f1(s.p50Med)+" · 95th percentile "+f1(s.p95Med)+" cmH2O",
+     "delivered mask pressure");
+  if (d && d.analyzed){
+    tr("Flow limitation", "present ~"+(d.flHiPct*100).toFixed(1)+"% of the night (index > 0.3, "+d.analyzed+"-night average)",
+       "partial airway narrowing without full apnea");
+    tr("Scored events (last "+d.analyzed+" nights)",
+       d.events.oa+" obstructive apneas · "+d.events.ca+" central apneas · "+d.events.hyp+" hypopneas", null);
+    tr("Oximetry", d.oximetry ? "recorded (see device data)" : "not recorded (no pulse oximeter attached)", null);
+  }
+  tr("Device settings", (set.mode||"—")+" · range "+range+(set.epr!=null ? " · EPR "+set.epr : ""),
+     "as configured at most recent session");
+  $("doctor").innerHTML =
+    (LAST.demo ? '<div class="sample">SAMPLE DATA (not a real patient record)</div>' : "") +
+    "<h1>CPAP Therapy Summary</h1>" +
+    '<p class="sub">ResMed AirSense SD-card data · '+s.from+" to "+s.to+" · generated "+today+" · NightReport (patient-generated)</p>" +
+    "<table>"+rows+"</table>" +
+    '<p class="note">Prepared by the patient from device SD-card data using NightReport, a free open-source tool. ' +
+    "All analysis ran locally in the patient's browser and no data was transmitted. Descriptive only. Not a medical device " +
+    "and not medical advice.</p>";
+}
+$("print-doc").onclick = () => { buildDoctor(); window.print(); };
+$("meta-info").onclick = () => $("meta-dialog").showModal();
+$("meta-dialog").addEventListener("click", e => { if (e.target === $("meta-dialog")) $("meta-dialog").close(); });
+
+$("demo").onclick = () => {
+  RUN = null; LAST.demo = true;
+  startLoading();
+  setTimeout(()=>onMsg({t:"status", data:"Reading summary (STR.edf)…"}), 200);
+  setTimeout(()=>onMsg({t:"summary", data:{ from:"2025-11-03", to:"2026-08-11", totalDays:282, usedNights:261,
+    avgHrs:6.4, avgHrsAll:6.7, ahiMedian30:1.8, oaiMed:0.9, caiMed:0.3, hiMed:0.6,
+    p50Med:9.8, p95Med:12.4, leakBadNights30:11, n30:30, leak95Med:21.4,
+    compliancePct:81, settings:{mode:"AutoSet", minPress:7, maxPress:16, epr:2} }}), 420);
+  setTimeout(()=>{
+    onMsg({t:"status", data:"Analyzing night 14/14…"});
+    onMsg({t:"nights", data:{ analyzed:14, swingPct:0.06, flHiPct:0.021,
+      leakMinAvg:6.2, events:{oa:9,ca:4,hyp:12,other:0}, oximetry:false,
+      trace:{ points:Array.from({length:600},(_,i)=>9.8+Math.sin(i/38)*0.7+Math.sin(i/6)*0.3+(i>300&&i<380?(i-300)*0.035:0)+(i>=380&&i<440?2.8-(i-380)*0.03:0)), pMin:8.5, pMax:13.5 },
+      perf:{ ms:112, mb:41.2, files:47 } }});
+  }, 680);
+};
+</script>
+<!-- ── Cloudflare Web Analytics ─────────────────────────────────────────────
+  Two ways to enable (pick one):
+  A) If this site is served through Cloudflare (DNS proxied / Pages), prefer the
+     script-free option: Dashboard > Web Analytics > enable for the hostname.
+     Metrics are measured at the edge; leave this file untouched.
+  B) Otherwise: Dashboard > Web Analytics > Add a site, copy your token into
+     the snippet below and uncomment it. The beacon is cookieless and reports
+     aggregate, anonymized metrics only.
+  If you add a Content-Security-Policy, allowlist only:
+     script-src static.cloudflareinsights.com; connect-src cloudflareinsights.com
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js"
+        data-cf-beacon='{"token": "YOUR_CF_TOKEN_HERE"}'></script>
+──────────────────────────────────────────────────────────────────────────── -->
+</body>
+</html>
