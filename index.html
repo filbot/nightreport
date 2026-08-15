@@ -862,6 +862,7 @@ async function prepare(files, zip){
   } catch(err){ load ? failLoading(err.message || String(err)) : status("⚠ " + (err.message || err)); }
 }
 
+let WORKER_OK = null;
 function analyze(entries){
   const boot = workerSrc +
     "\nself.onmessage = async e => {" +
@@ -872,7 +873,7 @@ function analyze(entries){
   try {
     if (worker) worker.terminate();
     worker = new Worker(URL.createObjectURL(new Blob([boot], {type:"text/javascript"})));
-    worker.onmessage = e => { gotMsg = true; onMsg(e.data); };
+    worker.onmessage = e => { gotMsg = true; WORKER_OK = true; onMsg(e.data); };
     worker.onerror = ev => {
       ev.preventDefault();
       if (!gotMsg){ worker.terminate(); runInline(entries); }
@@ -886,6 +887,7 @@ function analyze(entries){
 // main thread (see the #worker-src block), so this needs no eval. Yields between
 // nights so the progress UI keeps painting.
 async function runInline(entries){
+  WORKER_OK = false;
   status("Running analysis…", true);
   try {
     await runPipeline(entries, (t,d)=>onMsg({t,data:d}),
@@ -1151,8 +1153,13 @@ function edfMeta(buf){
 const maskName = n => n.replace(/\d{8}[_-]?\d{6}/g, "DATE_TIME").replace(/\d{8}/g, "DATE");
 function buildDebugReport(){
   if (!NAMES) return null;
+  // Deliberately not navigator.userAgent: this gets pasted into public issues, and
+  // the UA fingerprints the reporter without helping triage. The capability flags
+  // below are what actually determine which code path ran.
   const L = ["NightReport debug report (structure only: no measurements, dates, or serials)",
-             "UA: " + navigator.userAgent,
+             "Env: " + (window.showDirectoryPicker ? "fs-access" : "file-input") +
+               " · worker:" + (WORKER_OK == null ? "untried" : WORKER_OK ? "yes" : "fallback") +
+               " · unzip:" + (window.DecompressionStream ? "yes" : "no"),
              "Detected: " + detectDevice(NAMES.map(o=>o.n)),
              "Files (" + NAMES.length + "):"];
   for (const o of [...NAMES].sort((a,b)=>a.n.localeCompare(b.n)).slice(0,300))
