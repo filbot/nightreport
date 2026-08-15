@@ -347,7 +347,11 @@ footer .f-tech{font:11px var(--mono); color:var(--ink-3); text-align:center; mar
 </div>
 <div id="doctor" aria-hidden="true"></div>
 
-<script type="text/plain" id="worker-src">
+<!-- Parsing engine. Runs as a real script so the main thread has runPipeline for the
+     no-worker fallback; its textContent is also the source for the Blob worker.
+     Do not switch this back to type="text/plain": the fallback would then need
+     eval, which the Content-Security-Policy blocks. -->
+<script id="worker-src">
 "use strict";
 const dec = new TextDecoder("latin1");
 const norm = s => s.toLowerCase().replace(/[^a-z0-9.]/g, "");
@@ -846,13 +850,15 @@ function analyze(entries){
   } catch(e){ runInline(entries); }
 }
 
+// Fallback for when a Blob worker can't be created. runPipeline is already on the
+// main thread (see the #worker-src block), so this needs no eval. Yields between
+// nights so the progress UI keeps painting.
 async function runInline(entries){
   status("Running analysis…", true);
   try {
-    const runPipeline = new Function(workerSrc + "; return runPipeline;")();
     await runPipeline(entries, (t,d)=>onMsg({t,data:d}),
       () => new Promise(r=>setTimeout(r,0)));
-  } catch(err){ status("⚠ " + (err.message || err)); }
+  } catch(err){ load ? failLoading(err.message || String(err)) : status("⚠ " + (err.message || err)); }
 }
 
 const MIN_MS = 1100;
