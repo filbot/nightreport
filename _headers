@@ -1,7 +1,13 @@
 /*
   # CSP: default-deny; only inline code, the blob: worker, and Cloudflare's
   # analytics beacon are permitted. No third-party fonts or scripts exist.
-  Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline' blob: https://static.cloudflareinsights.com; worker-src blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://cloudflareinsights.com; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  # No blob: in script-src: the parsing worker is covered by worker-src, and the
+  # page itself never loads a blob: URL as script.
+  # No 'unsafe-eval': nothing evals. The no-worker fallback runs the parser
+  # directly on the main thread rather than compiling it from a string.
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; worker-src blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://cloudflareinsights.com; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
+  Cross-Origin-Opener-Policy: same-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
