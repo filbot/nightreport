@@ -731,6 +731,33 @@ function walkEntry(entry, out){
   });
 }
 
+// Decompression limits. A real card is tens of MB: STR.edf is single-digit MB even
+// after years, and 14 nights of PLD/EVE/SA2 run well under 100 MB. These ceilings
+// sit far above any genuine card and stop a zip bomb from inflating into memory.
+const MAX_ENTRY_BYTES = 128*1024*1024, MAX_TOTAL_BYTES = 512*1024*1024;
+const TOO_BIG = "That .zip expands to far more data than a CPAP card holds, so it wasn't opened. If this is really your card, drop the unzipped folder instead.";
+
+// deflate-raw output is only trustworthy once counted: the central directory can
+// understate the real size, so cap the bytes as they arrive. Read through a reader
+// rather than Response.arrayBuffer() — erroring a stream mid-pipe surfaces as an
+// opaque "Failed to fetch", which would bury the real reason.
+async function inflateCapped(blob, limit){
+  const rd = blob.stream().pipeThrough(new DecompressionStream("deflate-raw")).getReader();
+  const chunks = [];
+  let n = 0;
+  for (;;){
+    const { done, value } = await rd.read();
+    if (done) break;
+    n += value.byteLength;
+    if (n > limit){ await rd.cancel(); throw new Error(TOO_BIG); }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(n);
+  let p = 0;
+  for (const c of chunks){ out.set(c, p); p += c.byteLength; }
+  return out.buffer;
+}
+
 async function extractZip(file){
   if (!window.DecompressionStream) throw new Error("This browser can't unzip natively. Please drop the unzipped folder instead.");
   const tailLen = Math.min(file.size, 65558);
@@ -758,24 +785,29 @@ async function extractZip(file){
     const localOff = cd.getUint32(p+42, true);
     const name = td.decode(new Uint8Array(cdBuf, p+46, nameLen));
     if (!name.endsWith("/")) allNames.push({n:name, size:uncompSize});
-    if (KEEP(name) && compSize < 0xFFFFFFFF) found.push({name, method, compSize, localOff});
+    if (KEEP(name) && compSize < 0xFFFFFFFF) found.push({name, method, compSize, uncompSize, localOff});
     p += 46 + nameLen + extraLen + commentLen;
   }
   const keep = recentSet(found.map(f=>f.name));
   const out = [];
-  let done = 0;
+  let done = 0, total = 0;
   for (const f of found){
     if (!keep.has(f.name)) continue;
+    // Cheap rejection on the declared size before decompressing anything.
+    if (f.uncompSize > MAX_ENTRY_BYTES) throw new Error(TOO_BIG);
     status("Extracting " + (++done) + "…", true);
     const lh = new DataView(await file.slice(f.localOff, f.localOff+30).arrayBuffer());
     if (lh.getUint32(0,true) !== 0x04034b50) throw new Error("Corrupt zip entry: " + f.name);
     const dataOff = f.localOff + 30 + lh.getUint16(26,true) + lh.getUint16(28,true);
     const blob = file.slice(dataOff, dataOff + f.compSize);
+    const room = Math.min(MAX_ENTRY_BYTES, MAX_TOTAL_BYTES - total);
     let buf;
-    if (f.method === 0) buf = await blob.arrayBuffer();
-    else if (f.method === 8)
-      buf = await new Response(blob.stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer();
+    if (f.method === 0){
+      if (blob.size > room) throw new Error(TOO_BIG);
+      buf = await blob.arrayBuffer();
+    } else if (f.method === 8) buf = await inflateCapped(blob, room);
     else throw new Error("Unsupported zip compression (method " + f.method + ")");
+    total += buf.byteLength;
     out.push({rel: f.name, buf});
   }
   return { entries: out, names: allNames };
