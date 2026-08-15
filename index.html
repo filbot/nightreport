@@ -1100,10 +1100,16 @@ function renderNights(d){
   status("");
 }
 
+// Everything reaching these templates is a literal or a number today, but the
+// values downstream of the parser are file-controlled. Escape at the boundary so
+// a future field can't turn a signal label or event name into markup.
+const esc = v => String(v).replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
 function rowHTML(grade, title, desc, val, notRecorded){
-  return '<div class="chip ' + (grade==="na"?"na":"") + '">' + (grade==="na"?"—":(grade||"·")) + '</div>' +
-    '<div><h2>' + title + (notRecorded?'<span class="badge">Not recorded</span>':"") + '</h2>' +
-    '<p>' + desc + '</p>' + (val?'<div class="val">'+val+'</div>':"") + '</div>';
+  return '<div class="chip ' + (grade==="na"?"na":"") + '">' + esc(grade==="na"?"—":(grade||"·")) + '</div>' +
+    '<div><h2>' + esc(title) + (notRecorded?'<span class="badge">Not recorded</span>':"") + '</h2>' +
+    '<p>' + esc(desc) + '</p>' + (val?'<div class="val">'+esc(val)+'</div>':"") + '</div>';
 }
 function gradeClass(g){
   if (!g) return "grade-nodata";
@@ -1128,7 +1134,7 @@ function update(id, grade, title, desc, val, notRecorded){
 function kpi(label, value){
   const el = document.createElement("div");
   el.className = "kpi";
-  el.innerHTML = '<label>' + label + '</label><output>' + value + '</output>';
+  el.innerHTML = '<label>' + esc(label) + '</label><output>' + esc(value) + '</output>';
   $("kpis").appendChild(el);
 }
 
@@ -1206,7 +1212,7 @@ function buildDoctor(){
   const set = s.settings || {};
   const range = (set.minPress!=null && set.maxPress!=null) ? f1(set.minPress)+"–"+f1(set.maxPress)+" cmH2O" : "—";
   let rows = "";
-  const tr = (k, v, g) => rows += "<tr><td>"+k+(g?'<span class="gloss">'+g+"</span>":"")+"</td><td>"+v+"</td></tr>";
+  const tr = (k, v, g) => rows += "<tr><td>"+esc(k)+(g?'<span class="gloss">'+esc(g)+"</span>":"")+"</td><td>"+esc(v)+"</td></tr>";
   tr("Usage", f1(s.avgHrs)+" h/night average (last 30 nights) · "+s.usedNights+" of "+s.totalDays+" nights used overall",
      "how often and how long the device was used");
   tr("Compliance (≥ 4 h/night)", s.compliancePct+"% of the last 30 nights",
@@ -1231,7 +1237,7 @@ function buildDoctor(){
   $("doctor").innerHTML =
     (LAST.demo ? '<div class="sample">SAMPLE DATA (not a real patient record)</div>' : "") +
     "<h1>CPAP Therapy Summary</h1>" +
-    '<p class="sub">ResMed AirSense SD-card data · '+s.from+" to "+s.to+" · generated "+today+" · NightReport (patient-generated)</p>" +
+    '<p class="sub">ResMed AirSense SD-card data · '+esc(s.from)+" to "+esc(s.to)+" · generated "+esc(today)+" · NightReport (patient-generated)</p>" +
     "<table>"+rows+"</table>" +
     '<p class="note">Prepared by the patient from device SD-card data using NightReport, a free open-source tool. ' +
     "All analysis ran locally in the patient's browser and no data was transmitted. Descriptive only. Not a medical device " +
