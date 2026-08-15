@@ -18,6 +18,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
 :root{
+  color-scheme:light;
   --paper:#F6EFE2; --sheet:#FFFDF6; --ink:#191713; --ink-2:#4F4A40; --ink-3:#857D6E;
   --rule:#E7DCC6; --line:#191713;
   --graph:#2B59C3; --yellow:#FFC93C; --on-yellow:#191713;
@@ -26,14 +27,6 @@
   --body:system-ui,-apple-system,"Segoe UI",sans-serif;
   --display:-apple-system,"SF Pro Display",system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --shadow:4px 4px 0 var(--line);
-}
-@media (prefers-color-scheme: dark){
-  :root{
-    --paper:#1E1913; --sheet:#282217; --ink:#F4EBD9; --ink-2:#CFC4AC; --ink-3:#9A9080;
-    --rule:#3C3527; --line:#F4EBD9;
-    --graph:#FFC93C;
-    --good:#B9DE8B; --good-bg:#33461C; --warn:#F2CE6B; --warn-bg:#4A3D12;
-  }
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%; scrollbar-gutter:stable both-edges}
@@ -125,7 +118,6 @@ dialog button:focus,dialog button:focus-visible{outline:none}
 .big-grade{font-family:var(--display); font-weight:900; font-size:40px; line-height:1;
   color:var(--ink); background:var(--yellow); border:2px solid var(--line); border-radius:14px;
   box-shadow:var(--shadow); padding:12px 0; width:76px; text-align:center; flex:none}
-@media (prefers-color-scheme: dark){ .big-grade{color:var(--ink)} }
 .row{background:var(--sheet); border:2px solid var(--line); border-radius:14px;
   box-shadow:var(--shadow); padding:14px 16px; margin-bottom:14px; min-height:96px}
 .row-fill{display:grid; grid-template-columns:56px 1fr; gap:16px; align-items:start}
@@ -134,12 +126,6 @@ dialog button:focus,dialog button:focus-visible{outline:none}
 .grade-ok{background:#FBEBBB}
 .grade-watch{background:#F8D3CB}
 .grade-nodata{background:#ECE6D8}
-@media (prefers-color-scheme: dark){
-  .grade-good{background:#33461C}
-  .grade-ok{background:#4A3D12}
-  .grade-watch{background:#4A231C}
-  .grade-nodata{background:#35301F}
-}
 .gist{font:600 14.5px/1.55 var(--body); margin:0 0 16px}
 .chip{font-family:var(--display); font-weight:800; font-size:19px; text-align:center;
   border-radius:10px; padding:8px 0; color:var(--ink);
@@ -658,7 +644,6 @@ function drawTrace(tr){
   renderTraceFrame(tr, 1);
 }
 drawIdle();
-matchMedia("(prefers-color-scheme: dark)").addEventListener("change", ()=>{ if(anim) drawIdle(); });
 
 const KEEP = f => /(^|\/)STR\.edf$/i.test(f) || /_(PLD|EVE|SA2|SAD)\.edf$/i.test(f);
 const status = (msg, busy) => {
