@@ -985,8 +985,12 @@ function onMsg(m){
 const EASE = "cubic-bezier(.22,1,.36,1)";
 function swapSections(hideEl, showEl, after){
   const go = () => { hideEl.classList.add("hidden"); showEl.classList.remove("hidden"); if (after) after(); };
-  if (document.startViewTransition && !reduced) document.startViewTransition(go);
-  else go();
+  if (!document.startViewTransition || reduced) return go();
+  // .ready rejects whenever the transition is skipped: a second swap interrupting
+  // this one, or a hidden tab. go() has already run either way, so there is nothing
+  // to recover — this only keeps an unhandled rejection out of the console. Errors
+  // thrown by go() itself surface through updateCallbackDone and stay unhandled.
+  document.startViewTransition(go).ready.catch(()=>{});
 }
 function setOverall(g){
   const el = $("overall");
