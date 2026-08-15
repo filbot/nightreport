@@ -383,9 +383,17 @@ function parseEDF(buf){
   return { buf, start, recDur, nRec: realRecs, sig, headerBytes, recBytes };
 }
 
+// nRec and spr come straight from the file header. A corrupt or hostile EDF can
+// claim a sample count that would allocate gigabytes, so refuse before doing it.
+// 60M samples is ~480 MB of Float64 and far beyond any real ResMed signal.
+const MAX_SAMPLES = 60e6;
+
 function readSignal(edf, idx){
   const s = edf.sig[idx];
-  const out = new Float64Array(edf.nRec * s.spr);
+  const n = edf.nRec * s.spr;
+  if (!Number.isFinite(n) || n < 0 || n > MAX_SAMPLES)
+    throw new Error("EDF header claims an impossible signal length. The file looks corrupt.");
+  const out = new Float64Array(n);
   const gain = (s.physMax - s.physMin) / ((s.digMax - s.digMin) || 1);
   let pre = 0;
   for (let k=0;k<idx;k++) pre += edf.sig[k].spr*2;
@@ -657,8 +665,11 @@ function drawTrace(tr){
 drawIdle();
 
 const KEEP = f => /(^|\/)STR\.edf$/i.test(f) || /_(PLD|EVE|SA2|SAD)\.edf$/i.test(f);
+// Declared up here because status() reads it. `typeof load` would not have been a
+// safe guard: on a let binding in its temporal dead zone, typeof throws.
+let load = null;
 const status = (msg, busy) => {
-  const el = (typeof load !== "undefined" && load) ? $("load-status") : $("status");
+  const el = load ? $("load-status") : $("status");
   el.textContent = msg; el.dataset.busy = busy?1:0;
 };
 
@@ -896,7 +907,6 @@ async function runInline(entries){
 }
 
 const MIN_MS = 1100;
-let load = null;
 
 function startLoading(){
   load = { t0: performance.now(), timers: [], buffered: {}, released: false };
