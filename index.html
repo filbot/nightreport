@@ -86,6 +86,8 @@ button.btn-text{background:transparent; border-color:transparent; box-shadow:non
 button.btn-text:active{transform:none; box-shadow:none}
 .status{font:13px var(--mono); color:var(--ink-2); min-height:20px; margin-top:14px; text-align:center}
 .status[data-busy="1"]::after{content:"▮"; animation:blink 1s steps(1) infinite; margin-left:2px}
+.status[data-ok="1"]{color:var(--good); font-weight:700}
+.status[data-ok="1"]::before{content:"✓ "; font-weight:800}
 .fineprint{font:11px/1.7 var(--mono); color:var(--ink-3); text-align:center; max-width:440px; margin:18px auto 0}
 .fineprint a{color:inherit}
 details{margin-top:36px; border:1.5px solid var(--line); border-radius:12px; background:var(--sheet); box-shadow:2px 2px 0 var(--line)}
@@ -151,9 +153,14 @@ dialog button:focus,dialog button:focus-visible{outline:none}
 .step.active{color:var(--ink)}
 .step.active .tick{background:var(--yellow); box-shadow:2px 2px 0 var(--line)}
 .step.done{color:var(--ink-2)}
-.step.done .tick{background:var(--good-bg); color:var(--good); box-shadow:2px 2px 0 var(--line)}
+.step.done .tick{background:var(--good-bg); color:var(--good); box-shadow:2px 2px 0 var(--line);
+  animation:pop .32s cubic-bezier(.22,1,.36,1)}
+@keyframes pop{0%{transform:scale(1)} 45%{transform:scale(1.16)} 100%{transform:scale(1)}}
+.state.leaving{opacity:0; transform:translateY(-8px); transition:opacity .24s ease, transform .24s ease}
 @media (prefers-reduced-motion: reduce){
   .step,.step .tick{transition:none}
+  .step.done .tick{animation:none}
+  .state.leaving{transition:none}
 }
 .kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(96px,1fr)); gap:8px;
   padding-top:6px; margin-top:2px}
@@ -280,7 +287,7 @@ footer .f-tech{font:11px var(--mono); color:var(--ink-3); text-align:center; mar
     </section>
 
     <section id="loading" class="state hidden" aria-live="polite">
-      <h2 class="h1" style="text-align:center">Analyzing your therapy data</h2>
+      <h2 class="h1" id="load-title" style="text-align:center">Analyzing your therapy data</h2>
       <div class="steps">
         <div class="step" id="step-0"><span class="tick">✓</span>Reading SD card files</div>
         <div class="step" id="step-1"><span class="tick">✓</span>Parsing therapy summary</div>
@@ -854,7 +861,10 @@ let load = null;
 function startLoading(){
   load = { t0: performance.now(), timers: [], buffered: {}, released: false };
   for (let i=0;i<4;i++) $("step-"+i).className = "step";
-  $("load-status").textContent = "";
+  $("load-title").textContent = "Analyzing your therapy data";
+  $("loading").classList.remove("leaving");
+  const st = $("load-status");
+  st.textContent = ""; st.dataset.busy = 1; delete st.dataset.ok;
   breathe = 0.11;
   swapSections($("intro"), $("loading"));
   const cadence = 240;
@@ -871,24 +881,48 @@ function failLoading(msg){
   breathe = 0.045;
   swapSections($("loading"), $("intro"), ()=>status("⚠ " + msg));
 }
+// Timings for the wrap-up beat, so finishing reads as an event rather than a cut.
+const CASCADE = 110, SETTLE = 280, HOLD = 750, LEAVE = 240;
+
 function maybeRelease(){
   if (!load || !load.buffered.nights || load.released) return;
   load.released = true;
   const wait = Math.max(0, MIN_MS - (performance.now() - load.t0));
-  setTimeout(()=>{
+  load.timers.push(setTimeout(()=>{
     load.timers.forEach(clearTimeout);
-    for (let i=0;i<4;i++) $("step-"+i).className = "step done";
-    breathe = 0.045;
-    const b = load.buffered;
-    setTimeout(()=>{
+    load.timers = [];
+    // Tick off whatever is still outstanding one at a time; snapping all four
+    // to done in the same frame is what made the finish feel abrupt.
+    const pending = [];
+    for (let i=0;i<4;i++) if (!$("step-"+i).classList.contains("done")) pending.push(i);
+    const gap = reduced ? 0 : CASCADE;
+    pending.forEach((idx,n)=> load.timers.push(setTimeout(()=>{
+      $("step-"+idx).className = "step done";
+    }, n*gap)));
+    const settled = Math.max(0, pending.length-1)*gap + (reduced ? 0 : SETTLE);
+    load.timers.push(setTimeout(finishLoading, settled));
+  }, wait));
+}
+
+function finishLoading(){
+  if (!load) return;
+  $("load-title").textContent = "Analysis complete";
+  const st = $("load-status");
+  st.dataset.busy = 0; st.dataset.ok = 1;
+  st.textContent = "Your report card is ready";
+  breathe = 0.045;
+  const b = load.buffered;
+  load.timers.push(setTimeout(()=>{
+    if (!reduced) $("loading").classList.add("leaving");
+    load.timers.push(setTimeout(()=>{
       renderSummary(b.summary);
       renderNights(b.nights);
-    }, 120);
-  }, wait);
+    }, reduced ? 0 : LEAVE));
+  }, reduced ? 300 : HOLD));
 }
 
 function onMsg(m){
-  if (m.t === "status"){ if (load) $("load-status").textContent = m.data; else status(m.data, true); }
+  if (m.t === "status"){ if (load){ if (!load.released) $("load-status").textContent = m.data; } else status(m.data, true); }
   else if (m.t === "error"){ load ? failLoading(m.data) : status("⚠ " + m.data); }
   else if (m.t === "summary"){ load ? load.buffered.summary = m.data : renderSummary(m.data); }
   else if (m.t === "nights"){
@@ -942,7 +976,10 @@ function renderSummary(s){
   if (load){ load.timers.forEach(clearTimeout); load = null; }
   $("load-status").dataset.busy = 0;
   from.classList.add("hidden");
-  $("report").classList.remove("hidden");
+  from.classList.remove("leaving");
+  const rep = $("report");
+  rep.classList.remove("hidden");
+  rep.classList.remove("reveal"); void rep.offsetWidth; rep.classList.add("reveal");
   buildSummary(s);
 }
 function monthYear(iso){
