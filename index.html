@@ -470,10 +470,17 @@ function parseTALs(edf){
 }
 
 function analyzeSTR(edf){
+  // The whole report is dated off this. An unreadable one used to reach
+  // toISOString() and surface as a bare "Invalid Date".
+  if (isNaN(edf.start))
+    throw new Error("STR.edf has an unreadable start date, so the report's date range can't be worked out. The file looks corrupt.");
   const day = name => { const i = findSig(edf, name); return i<0 ? null : readSignal(edf, i); };
   const durIdx = findSig(edf, "duration") >= 0 ? findSig(edf, "duration") : findSig(edf, "dur");
   if (durIdx < 0) throw new Error("STR.edf: no Duration signal found");
   let dur = readSignal(edf, durIdx);
+  // Without this the whole card divides by zero and the report renders "NaN".
+  if (!dur.length)
+    throw new Error("STR.edf holds no daily records. If the card was still being written, eject it properly and copy it again.");
   const med = percentile(Array.from(dur).filter(v=>v>0), 0.5);
   const durHrs = v => med > 1000 ? v/3600 : v/60;
   const ahi = day("ahi"), oai = day("oai"), cai = day("cai"), hi = day("hi");
@@ -532,6 +539,9 @@ function analyzePLD(edf){
   const li = findSig(edf, "leak");
   if (pi < 0) return null;
   const press = readSignal(edf, pi);
+  // A pressure channel with no samples yields an empty trace and Infinity bounds.
+  // Treat it as an unusable night rather than charting nothing.
+  if (!press.length) return null;
   const fs = edf.sig[pi].spr / edf.recDur;
   const win = Math.max(2, Math.round(300*fs));
   let swings = 0, wins = 0;
