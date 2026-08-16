@@ -922,10 +922,19 @@ function analyze(entries){
   try {
     if (worker) worker.terminate();
     worker = new Worker(URL.createObjectURL(new Blob([boot], {type:"text/javascript"})));
-    worker.onmessage = e => { gotMsg = true; WORKER_OK = true; onMsg(e.data); };
+    worker.onmessage = e => {
+      gotMsg = true; WORKER_OK = true;
+      // "nights" and "error" are both terminal. Shut the worker down so its copy
+      // of the card (postMessage clones it) stops occupying memory.
+      if (e.data.t === "nights" || e.data.t === "error") worker.terminate();
+      onMsg(e.data);
+    };
     worker.onerror = ev => {
       ev.preventDefault();
       if (!gotMsg){ worker.terminate(); runInline(entries); }
+      // Past the first message, falling back would redo finished work. Report it
+      // instead — and give the loading screen a way out, since it has none.
+      else if (load) failLoading(ev.message || "Worker error");
       else status("⚠ " + (ev.message || "Worker error"));
     };
     worker.postMessage({ entries });
