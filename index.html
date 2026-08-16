@@ -25,6 +25,7 @@
   --rule:#E7DCC6; --line:#191713;
   --graph:#2B59C3; --yellow:#FFC93C; --on-yellow:#191713;
   --good:#3E6B1F; --good-bg:#DFF0C8; --warn:#8A6200; --warn-bg:#FBEBBB;
+  --bad:#A3301F; --bad-bg:#F8D3CB;
   --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
   --body:system-ui,-apple-system,"Segoe UI",sans-serif;
   --display:-apple-system,"SF Pro Display",system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
@@ -107,12 +108,19 @@ details .inner p{margin:0 0 10px}
 /* The overall grade is the verdict, not another category, so it breaks the row pattern
    on every axis at once: the page's own paper ground instead of a pastel tint, one large
    unboxed letterform instead of a chip in a box, an uppercase eyebrow the rows never use,
-   and a stacked grid rather than their chip-then-text one. Severity is left entirely to the
-   category rows below; the verdict states the grade and the rows colour the detail. */
-.summary{background:var(--paper); color:var(--ink);
+   and a stacked grid rather than their chip-then-text one. */
+.summary{--verdict:var(--ink-3);
+  background:var(--paper); color:var(--ink);
   border:2px solid var(--line); border-radius:16px; box-shadow:var(--shadow);
   padding:20px 22px 17px; margin-bottom:20px;
   display:grid; grid-template-columns:auto 1fr; column-gap:22px; align-items:center}
+/* Each severity pairs a card fill with a readable ink of the same hue. The rows use
+   the fill; the letterform uses the ink, so the overall grade is visibly the same
+   colour as the cards it summarises. The fills themselves measure about 1.1:1 on
+   paper, so they can only ever be backgrounds. */
+.summary[data-grade="grade-good"]{--verdict:var(--good)}
+.summary[data-grade="grade-ok"]{--verdict:var(--warn)}
+.summary[data-grade="grade-watch"]{--verdict:var(--bad)}
 .summary .eyebrow{grid-column:1/-1; margin:0 0 13px;
   font:700 10.5px/1 var(--mono); letter-spacing:.17em; text-transform:uppercase;
   color:var(--ink-3)}
@@ -140,15 +148,15 @@ dialog button:focus:not(:focus-visible){outline:none}
 /* Unboxed on purpose: every other grade on the page sits inside a bordered chip, so
    the bare letterform is itself a signal that this one is not a category score. */
 .big-grade{grid-column:1; font-family:var(--display); font-weight:900; font-size:68px;
-  line-height:.8; letter-spacing:-.045em; color:var(--ink); text-align:center;
+  line-height:.8; letter-spacing:-.045em; color:var(--verdict); text-align:center;
   min-width:1.5em}
 .row{background:var(--sheet); border:2px solid var(--line); border-radius:14px;
   box-shadow:var(--shadow); padding:14px 16px; margin-bottom:14px; min-height:96px}
 .row-fill{display:grid; grid-template-columns:56px 1fr; gap:16px; align-items:start}
 
-.grade-good{background:#DFF0C8}
-.grade-ok{background:#FBEBBB}
-.grade-watch{background:#F8D3CB}
+.grade-good{background:var(--good-bg)}
+.grade-ok{background:var(--warn-bg)}
+.grade-watch{background:var(--bad-bg)}
 .grade-nodata{background:#ECE6D8}
 .gist{grid-column:2; margin:0; font:500 16.5px/1.42 var(--body); color:var(--ink)}
 .chip{font-family:var(--display); font-weight:800; font-size:19px; text-align:center;
@@ -1073,6 +1081,7 @@ function setOverall(g){
   const el = $("overall");
   const gist = $("gist");
   if (PTS[g] != null){
+    $("summary").dataset.grade = gradeClass(g);
     gist.textContent =
       PTS[g] >= 3.7 ? "Your therapy is working well. Nothing here needs attention." :
       PTS[g] >= 2.7 ? "Your therapy is mostly on track. A couple of areas are worth a look below." :
@@ -1295,6 +1304,7 @@ function resetToIntro(){
   $("range").textContent = ""; $("gist").textContent = "";
   $("meta").textContent = "—";
   $("overall").textContent = "–";
+  delete $("summary").dataset.grade;
   // The print sheet is built into a hidden element, so a stale one would still be
   // what Cmd-P picked up from the intro screen.
   $("doctor").innerHTML = "";
