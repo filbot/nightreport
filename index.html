@@ -107,7 +107,7 @@ details .inner p{margin:0 0 10px}
 .actions.actions-end{margin-top:22px}
 /* The overall grade is the verdict, not another category, so it breaks the row pattern
    on every axis at once: the page's own paper ground instead of a pastel tint, one large
-   unboxed letterform instead of a chip in a box, an uppercase eyebrow the rows never use,
+   chip holding the grade colour rather than ink, an uppercase eyebrow the rows never use,
    and a stacked grid rather than their chip-then-text one. */
 .summary{--verdict:var(--ink-3);
   background:var(--paper); color:var(--ink);
@@ -145,11 +145,13 @@ dialog form{margin:6px 0 0; text-align:right}
 /* Suppress the ring for pointer focus only. Killing :focus-visible too left the
    dialog's only control with no visible keyboard focus at all. */
 dialog button:focus:not(:focus-visible){outline:none}
-/* Unboxed on purpose: every other grade on the page sits inside a bordered chip, so
-   the bare letterform is itself a signal that this one is not a category score. */
-.big-grade{grid-column:1; font-family:var(--display); font-weight:900; font-size:68px;
-  line-height:.8; letter-spacing:-.045em; color:var(--verdict); text-align:center;
-  min-width:1.5em}
+/* Boxed like a category chip but with the colour scheme inverted: a row chip is ink on
+   white inside a coloured card, this is the grade's own colour on white inside a paper
+   card. Scale still separates them - 46px against the rows' 19px. */
+.big-grade{grid-column:1; font-family:var(--display); font-weight:900; font-size:46px;
+  line-height:1; letter-spacing:-.035em; color:var(--verdict); text-align:center;
+  background:var(--sheet); border:2px solid var(--line); border-radius:12px;
+  box-shadow:2px 2px 0 var(--line); padding:15px 0; min-width:2.15em}
 .row{background:var(--sheet); border:2px solid var(--line); border-radius:14px;
   box-shadow:var(--shadow); padding:14px 16px; margin-bottom:14px; min-height:96px}
 .row-fill{display:grid; grid-template-columns:56px 1fr; gap:16px; align-items:start}
@@ -244,7 +246,8 @@ footer .f-tech{font:11px var(--mono); color:var(--ink-3); text-align:center; mar
   .actions button{width:100%}
   .summary{grid-template-columns:1fr; padding:16px 15px 14px}
   .summary .eyebrow{margin-bottom:9px}
-  .big-grade{grid-column:1; font-size:54px; text-align:left; min-width:0; margin-bottom:4px}
+  .big-grade{grid-column:1; font-size:34px; padding:11px 0; width:84px; min-width:0;
+    justify-self:start; margin-bottom:9px}
   .gist{grid-column:1; font-size:15px}
   .summary .meta{margin-top:13px}
   .row{padding:12px; min-height:112px}
