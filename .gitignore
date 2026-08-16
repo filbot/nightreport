@@ -1,0 +1,5 @@
+# Working notes: plans, audit write-ups, lessons. Local only.
+tasks/
+
+# macOS
+.DS_Store
