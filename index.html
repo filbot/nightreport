@@ -107,20 +107,18 @@ details .inner p{margin:0 0 10px}
 .actions.actions-end{margin-top:22px}
 /* The overall grade is the verdict, not another category, so it breaks the row pattern
    on every axis at once: the page's own paper ground instead of a pastel tint, one large
-   chip holding the grade colour rather than ink, an uppercase eyebrow the rows never use,
+   chip whose fill and ink are swapped from a row's, an uppercase eyebrow rows never use,
    and a stacked grid rather than their chip-then-text one. */
-.summary{--verdict:var(--ink-3);
+.summary{--chip:var(--sheet);
   background:var(--paper); color:var(--ink);
   border:2px solid var(--line); border-radius:16px; box-shadow:var(--shadow);
   padding:20px 22px 17px; margin-bottom:20px;
   display:grid; grid-template-columns:auto 1fr; column-gap:22px; align-items:center}
-/* Each severity pairs a card fill with a readable ink of the same hue. The rows use
-   the fill; the letterform uses the ink, so the overall grade is visibly the same
-   colour as the cards it summarises. The fills themselves measure about 1.1:1 on
-   paper, so they can only ever be backgrounds. */
-.summary[data-grade="grade-good"]{--verdict:var(--good)}
-.summary[data-grade="grade-ok"]{--verdict:var(--warn)}
-.summary[data-grade="grade-watch"]{--verdict:var(--bad)}
+/* The chip takes the literal fill of the card family this grade falls into, so the
+   verdict carries the same colour the rows below use. */
+.summary[data-grade="grade-good"]{--chip:var(--good-bg)}
+.summary[data-grade="grade-ok"]{--chip:var(--warn-bg)}
+.summary[data-grade="grade-watch"]{--chip:var(--bad-bg)}
 .summary .eyebrow{grid-column:1/-1; margin:0 0 13px;
   font:700 10.5px/1 var(--mono); letter-spacing:.17em; text-transform:uppercase;
   color:var(--ink-3)}
@@ -145,12 +143,12 @@ dialog form{margin:6px 0 0; text-align:right}
 /* Suppress the ring for pointer focus only. Killing :focus-visible too left the
    dialog's only control with no visible keyboard focus at all. */
 dialog button:focus:not(:focus-visible){outline:none}
-/* Boxed like a category chip but with the colour scheme inverted: a row chip is ink on
-   white inside a coloured card, this is the grade's own colour on white inside a paper
-   card. Scale still separates them - 46px against the rows' 19px. */
+/* Boxed like a category chip with the colour scheme inverted: a row is a coloured card
+   holding a white chip, this is a paper card holding a coloured chip. Same two colours,
+   swapped. Scale still separates them - 46px against the rows' 19px. */
 .big-grade{grid-column:1; font-family:var(--display); font-weight:900; font-size:46px;
-  line-height:1; letter-spacing:-.035em; color:var(--verdict); text-align:center;
-  background:var(--sheet); border:2px solid var(--line); border-radius:12px;
+  line-height:1; letter-spacing:-.035em; color:var(--ink); text-align:center;
+  background:var(--chip); border:2px solid var(--line); border-radius:12px;
   box-shadow:2px 2px 0 var(--line); padding:15px 0; min-width:2.15em}
 .row{background:var(--sheet); border:2px solid var(--line); border-radius:14px;
   box-shadow:var(--shadow); padding:14px 16px; margin-bottom:14px; min-height:96px}
