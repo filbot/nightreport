@@ -104,17 +104,32 @@ details .inner p{margin:0 0 10px}
 .hidden{display:none}
 .center{text-align:center}
 .actions.actions-end{margin-top:22px}
-/* The overall grade is the same component as a category row, one scale up: same card,
-   same white chip on a grade-coloured ground, same title / explanation / data-line
-   column. Previously it was a loose stack — pill, heading, meta line, and a floating
-   badge — with the verdict sentence orphaned below the whole thing. */
-.summary{border:2px solid var(--line); border-radius:16px; box-shadow:var(--shadow);
-  padding:18px 16px; margin-bottom:18px;
-  display:grid; grid-template-columns:56px 1fr; gap:16px; align-items:start}
-.summary h2{font-family:var(--display); font-weight:800; font-size:20px;
-  letter-spacing:-.01em; margin:0 0 5px}
-.summary .meta{font:11.5px var(--mono); color:color-mix(in srgb, var(--ink) 63%, transparent);
-  margin-top:9px; display:flex; align-items:center; gap:7px; flex-wrap:wrap}
+/* The overall grade is the verdict, not another category, so it breaks the row pattern
+   on every axis at once: an inverted ground instead of a pastel tint, one large unboxed
+   letterform instead of a chip in a box, an uppercase eyebrow the rows never use, and a
+   stacked grid rather than their chip-then-text one. --verdict is set from the grade so
+   the colour lands on the letterform, leaving the ground constant. */
+.summary{--verdict:#9A9384;
+  background:var(--ink); color:var(--sheet);
+  border:2px solid var(--line); border-radius:16px; box-shadow:var(--shadow);
+  padding:20px 22px 17px; margin-bottom:20px;
+  display:grid; grid-template-columns:auto 1fr; column-gap:22px; align-items:center}
+.summary[data-grade="grade-good"]{--verdict:#A8DC7A}
+.summary[data-grade="grade-ok"]{--verdict:#FFC93C}
+.summary[data-grade="grade-watch"]{--verdict:#FF9B85}
+.summary .eyebrow{grid-column:1/-1; margin:0 0 13px;
+  font:700 10.5px/1 var(--mono); letter-spacing:.17em; text-transform:uppercase;
+  color:color-mix(in srgb, var(--sheet) 58%, transparent)}
+.summary .meta{grid-column:1/-1; margin-top:16px; padding-top:13px;
+  border-top:1.5px solid color-mix(in srgb, var(--sheet) 20%, transparent);
+  font:11.5px var(--mono); color:color-mix(in srgb, var(--sheet) 62%, transparent);
+  display:flex; align-items:center; gap:7px; flex-wrap:wrap}
+.summary .info-btn{border-color:color-mix(in srgb, var(--sheet) 45%, transparent);
+  color:color-mix(in srgb, var(--sheet) 70%, transparent)}
+@media (hover:hover){
+  .summary .info-btn:hover{color:var(--sheet);
+    border-color:color-mix(in srgb, var(--sheet) 78%, transparent)}
+}
 .info-btn{all:unset; box-sizing:border-box; width:15px; height:15px; flex:none; cursor:pointer;
   position:relative; border:1px solid color-mix(in srgb, var(--ink-3) 65%, transparent);
   border-radius:50%; font:italic 700 9.5px/1 Georgia,serif;
@@ -132,13 +147,11 @@ dialog form{margin:6px 0 0; text-align:right}
 /* Suppress the ring for pointer focus only. Killing :focus-visible too left the
    dialog's only control with no visible keyboard focus at all. */
 dialog button:focus:not(:focus-visible){outline:none}
-/* Sheet-white like .chip, so the grade colour lives on the card behind it. This also
-   retires a cascade collision: the old rule set its own yellow background and relied
-   on .grade-good and friends, declared 7 lines later at equal specificity, to win on
-   source order alone. */
-.big-grade{font-family:var(--display); font-weight:900; font-size:30px; line-height:1;
-  color:var(--ink); background:var(--sheet); border:2px solid var(--line); border-radius:10px;
-  box-shadow:2px 2px 0 var(--line); padding:13px 0; width:100%; text-align:center}
+/* Unboxed on purpose: every other grade on the page sits inside a bordered chip, so
+   the bare letterform is itself a signal that this one is not a category score. */
+.big-grade{grid-column:1; font-family:var(--display); font-weight:900; font-size:68px;
+  line-height:.8; letter-spacing:-.045em; color:var(--verdict); text-align:center;
+  min-width:1.5em}
 .row{background:var(--sheet); border:2px solid var(--line); border-radius:14px;
   box-shadow:var(--shadow); padding:14px 16px; margin-bottom:14px; min-height:96px}
 .row-fill{display:grid; grid-template-columns:56px 1fr; gap:16px; align-items:start}
@@ -147,7 +160,7 @@ dialog button:focus:not(:focus-visible){outline:none}
 .grade-ok{background:#FBEBBB}
 .grade-watch{background:#F8D3CB}
 .grade-nodata{background:#ECE6D8}
-.gist{font:400 14.5px/1.55 var(--body); color:var(--ink); margin:0}
+.gist{grid-column:2; margin:0; font:500 16.5px/1.42 var(--body); color:var(--sheet)}
 .chip{font-family:var(--display); font-weight:800; font-size:19px; text-align:center;
   border-radius:10px; padding:8px 0; color:var(--ink);
   background:var(--sheet); border:2px solid var(--line); box-shadow:2px 2px 0 var(--line)}
@@ -231,10 +244,11 @@ footer .f-tech{font:11px var(--mono); color:var(--ink-3); text-align:center; mar
   .drop{padding:26px 16px}
   .actions{flex-direction:column; align-items:stretch; gap:10px}
   .actions button{width:100%}
-  .summary{grid-template-columns:46px 1fr; gap:12px; padding:14px 12px}
-  .summary h2{font-size:17px}
-  .big-grade{font-size:23px; padding:11px 0}
-  .gist{font-size:13.5px}
+  .summary{grid-template-columns:1fr; padding:16px 15px 14px}
+  .summary .eyebrow{margin-bottom:9px}
+  .big-grade{grid-column:1; font-size:54px; text-align:left; min-width:0; margin-bottom:4px}
+  .gist{grid-column:1; font-size:15px}
+  .summary .meta{margin-top:13px}
   .row{padding:12px; min-height:112px}
   .row-fill{grid-template-columns:46px 1fr; gap:12px}
   .chip{font-size:16px; padding:7px 0}
@@ -327,14 +341,12 @@ footer .f-tech{font:11px var(--mono); color:var(--ink-3); text-align:center; mar
 
     <section id="report" class="state hidden">
       <div class="pill" id="report-pill">Your results</div>
-      <div class="summary grade-nodata" id="summary">
+      <div class="summary" id="summary">
+        <h2 class="eyebrow">Overall grade</h2>
         <div class="big-grade" id="overall">–</div>
-        <div>
-          <h2>Therapy report card</h2>
-          <p class="gist" id="gist"></p>
-          <div class="meta"><span id="meta">—</span><button class="info-btn" id="meta-info"
-            type="button" aria-label="About this data">i</button></div>
-        </div>
+        <p class="gist" id="gist"></p>
+        <div class="meta"><span id="meta">—</span><button class="info-btn" id="meta-info"
+          type="button" aria-label="About this data">i</button></div>
       </div>
       <div id="rows"></div>
       <div class="kpis" id="kpis"></div>
@@ -1071,9 +1083,7 @@ function setOverall(g){
   const el = $("overall");
   const gist = $("gist");
   if (PTS[g] != null){
-    // The card carries the grade colour, exactly as a category row does. The chip
-    // inside it stays sheet-white so the two read as one component at two scales.
-    $("summary").className = "summary " + gradeClass(g);
+    $("summary").dataset.grade = gradeClass(g);
     gist.textContent =
       PTS[g] >= 3.7 ? "Your therapy is working well. Nothing here needs attention." :
       PTS[g] >= 2.7 ? "Your therapy is mostly on track. A couple of areas are worth a look below." :
@@ -1296,7 +1306,7 @@ function resetToIntro(){
   $("range").textContent = ""; $("gist").textContent = "";
   $("meta").textContent = "—";
   $("overall").textContent = "–";
-  $("summary").className = "summary grade-nodata";
+  delete $("summary").dataset.grade;
   // The print sheet is built into a hidden element, so a stale one would still be
   // what Cmd-P picked up from the intro screen.
   $("doctor").innerHTML = "";
