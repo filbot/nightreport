@@ -25,6 +25,7 @@
   --rule:#E7DCC6; --line:#191713;
   --graph:#2B59C3; --yellow:#FFC93C; --on-yellow:#191713;
   --good:#3E6B1F; --good-bg:#DFF0C8; --warn:#8A6200; --warn-bg:#FBEBBB;
+  --bad:#A3301F;
   --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
   --body:system-ui,-apple-system,"Segoe UI",sans-serif;
   --display:-apple-system,"SF Pro Display",system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
@@ -105,31 +106,25 @@ details .inner p{margin:0 0 10px}
 .center{text-align:center}
 .actions.actions-end{margin-top:22px}
 /* The overall grade is the verdict, not another category, so it breaks the row pattern
-   on every axis at once: an inverted ground instead of a pastel tint, one large unboxed
-   letterform instead of a chip in a box, an uppercase eyebrow the rows never use, and a
-   stacked grid rather than their chip-then-text one. --verdict is set from the grade so
-   the colour lands on the letterform, leaving the ground constant. */
-.summary{--verdict:#9A9384;
-  background:var(--ink); color:var(--sheet);
+   on every axis at once: the page's own paper ground instead of a pastel tint, one large
+   unboxed letterform instead of a chip in a box, an uppercase eyebrow the rows never use,
+   and a stacked grid rather than their chip-then-text one. --verdict is set from the grade
+   so severity lands on the letterform and the ground stays constant. */
+.summary{--verdict:var(--ink-3);
+  background:var(--paper); color:var(--ink);
   border:2px solid var(--line); border-radius:16px; box-shadow:var(--shadow);
   padding:20px 22px 17px; margin-bottom:20px;
   display:grid; grid-template-columns:auto 1fr; column-gap:22px; align-items:center}
-.summary[data-grade="grade-good"]{--verdict:#A8DC7A}
-.summary[data-grade="grade-ok"]{--verdict:#FFC93C}
-.summary[data-grade="grade-watch"]{--verdict:#FF9B85}
+.summary[data-grade="grade-good"]{--verdict:var(--good)}
+.summary[data-grade="grade-ok"]{--verdict:var(--warn)}
+.summary[data-grade="grade-watch"]{--verdict:var(--bad)}
 .summary .eyebrow{grid-column:1/-1; margin:0 0 13px;
   font:700 10.5px/1 var(--mono); letter-spacing:.17em; text-transform:uppercase;
-  color:color-mix(in srgb, var(--sheet) 58%, transparent)}
+  color:var(--ink-3)}
 .summary .meta{grid-column:1/-1; margin-top:16px; padding-top:13px;
-  border-top:1.5px solid color-mix(in srgb, var(--sheet) 20%, transparent);
-  font:11.5px var(--mono); color:color-mix(in srgb, var(--sheet) 62%, transparent);
+  border-top:1.5px solid color-mix(in srgb, var(--ink) 16%, transparent);
+  font:11.5px var(--mono); color:color-mix(in srgb, var(--ink) 63%, transparent);
   display:flex; align-items:center; gap:7px; flex-wrap:wrap}
-.summary .info-btn{border-color:color-mix(in srgb, var(--sheet) 45%, transparent);
-  color:color-mix(in srgb, var(--sheet) 70%, transparent)}
-@media (hover:hover){
-  .summary .info-btn:hover{color:var(--sheet);
-    border-color:color-mix(in srgb, var(--sheet) 78%, transparent)}
-}
 .info-btn{all:unset; box-sizing:border-box; width:15px; height:15px; flex:none; cursor:pointer;
   position:relative; border:1px solid color-mix(in srgb, var(--ink-3) 65%, transparent);
   border-radius:50%; font:italic 700 9.5px/1 Georgia,serif;
@@ -160,7 +155,7 @@ dialog button:focus:not(:focus-visible){outline:none}
 .grade-ok{background:#FBEBBB}
 .grade-watch{background:#F8D3CB}
 .grade-nodata{background:#ECE6D8}
-.gist{grid-column:2; margin:0; font:500 16.5px/1.42 var(--body); color:var(--sheet)}
+.gist{grid-column:2; margin:0; font:500 16.5px/1.42 var(--body); color:var(--ink)}
 .chip{font-family:var(--display); font-weight:800; font-size:19px; text-align:center;
   border-radius:10px; padding:8px 0; color:var(--ink);
   background:var(--sheet); border:2px solid var(--line); box-shadow:2px 2px 0 var(--line)}
