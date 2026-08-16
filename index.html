@@ -1270,13 +1270,28 @@ if (matchMedia("(pointer:coarse)").matches){
   drop.querySelector("small").textContent = "A .zip of the card from your Files app works great. Waveform (BRP) files are skipped automatically.";
 }
 
-$("again").onclick = () => {
-  swapSections($("report"), $("intro"), () => {
-    $("rows").innerHTML = ""; $("kpis").innerHTML = ""; G = {}; RUN = null;
-    $("range").textContent = ""; status("");
-    phase = 0; cancelAnimationFrame(anim); drawIdle();
-  });
-};
+// "Analyze new data" has to land the user exactly where a first visit would: at the
+// top of the page, with nothing left over from the run they just finished. Reports
+// are long, so without the scroll reset you return to the intro still parked at the
+// old footer position.
+function resetToIntro(){
+  window.scrollTo(0, 0);
+  $("rows").innerHTML = ""; $("kpis").innerHTML = "";
+  $("range").textContent = ""; $("gist").textContent = "";
+  $("meta").textContent = "—";
+  $("overall").textContent = "–"; $("overall").className = "big-grade";
+  // The print sheet is built into a hidden element, so a stale one would still be
+  // what Cmd-P picked up from the intro screen.
+  $("doctor").innerHTML = "";
+  // Card-derived state. NAMES and ENTRIES back the debug report, which should not
+  // keep offering the previous card once you have left its report.
+  G = {}; RUN = null; NAMES = null; ENTRIES = null;
+  LAST.s = null; LAST.d = null; LAST.demo = false;
+  status("");
+  phase = 0; breathe = 0.045;
+  cancelAnimationFrame(anim); drawIdle();
+}
+$("again").onclick = () => swapSections($("report"), $("intro"), resetToIntro);
 
 const LAST = { s:null, d:null, demo:false };
 function buildDoctor(){
