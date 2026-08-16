@@ -356,9 +356,16 @@ footer .f-tech{font:11px var(--mono); color:var(--ink-3); text-align:center; mar
 const dec = new TextDecoder("latin1");
 const norm = s => s.toLowerCase().replace(/[^a-z0-9.]/g, "");
 
+// Every number below is a claim made by a file that came off a device, not a fact.
+// A corrupt or hostile header can say the file holds more signals or records than
+// it does, so nothing here is used before it has been checked against the real size.
+const BAD_EDF = "One of the EDF files has an unreadable header. The file looks corrupt — try copying the card again.";
+
 function parseEDF(buf){
+  if (buf.byteLength < 256) throw new Error(BAD_EDF);
   const h = dec.decode(new Uint8Array(buf, 0, 256));
   const ns = parseInt(h.slice(252, 256));
+  if (!Number.isFinite(ns) || ns < 1 || 256 + ns*256 > buf.byteLength) throw new Error(BAD_EDF);
   const nRec = parseInt(h.slice(236, 244));
   const recDur = parseFloat(h.slice(244, 252)) || 1;
   const d = h.slice(168, 176), t = h.slice(176, 184);
@@ -369,17 +376,22 @@ function parseEDF(buf){
   const F = (off, w, i) => sh.slice(off*ns + w*i, off*ns + w*(i+1));
   const sig = [];
   for (let i=0;i<ns;i++){
+    const spr = parseInt(F(216,8,i));
     sig.push({
       label: F(0,16,i).trim(),
       physDim: F(96,8,i).trim(),
       physMin: parseFloat(F(104,8,i)), physMax: parseFloat(F(112,8,i)),
       digMin: parseFloat(F(120,8,i)), digMax: parseFloat(F(128,8,i)),
-      spr: parseInt(F(216,8,i))
+      spr: Number.isFinite(spr) && spr > 0 ? spr : 0
     });
   }
   const headerBytes = 256 + ns*256;
   const recBytes = sig.reduce((a,s)=>a+s.spr*2, 0);
-  const realRecs = nRec > 0 ? nRec : Math.floor((buf.byteLength-headerBytes)/recBytes);
+  // How many records the file can actually hold. The header's own count is only
+  // ever an upper bound on this: it can overrun a truncated file, and a record
+  // length of zero would make it infinite, which spun parseTALs forever.
+  const capacity = recBytes > 0 ? Math.floor((buf.byteLength - headerBytes) / recBytes) : 0;
+  const realRecs = nRec > 0 ? Math.min(nRec, capacity) : capacity;
   return { buf, start, recDur, nRec: realRecs, sig, headerBytes, recBytes };
 }
 
