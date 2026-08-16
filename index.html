@@ -816,6 +816,9 @@ async function extractZip(file){
     const extraLen = cd.getUint16(p+30, true);
     const commentLen = cd.getUint16(p+32, true);
     const localOff = cd.getUint32(p+42, true);
+    // nameLen is the file's claim; a truncated or doctored directory can point it
+    // past the end of what we read, which used to throw a raw RangeError.
+    if (p + 46 + nameLen > cdBuf.byteLength) break;
     const name = td.decode(new Uint8Array(cdBuf, p+46, nameLen));
     if (!name.endsWith("/")) allNames.push({n:name, size:uncompSize});
     if (KEEP(name) && compSize < 0xFFFFFFFF) found.push({name, method, compSize, uncompSize, localOff});
@@ -830,7 +833,10 @@ async function extractZip(file){
     if (f.uncompSize > MAX_ENTRY_BYTES) throw new Error(TOO_BIG);
     status("Extracting " + (++done) + "…", true);
     const lh = new DataView(await file.slice(f.localOff, f.localOff+30).arrayBuffer());
-    if (lh.getUint32(0,true) !== 0x04034b50) throw new Error("Corrupt zip entry: " + f.name);
+    // A localOff past the end of the file yields a short slice; reading a
+    // signature out of it would throw a raw RangeError.
+    if (lh.byteLength < 30 || lh.getUint32(0,true) !== 0x04034b50)
+      throw new Error("Corrupt zip entry: " + f.name);
     const dataOff = f.localOff + 30 + lh.getUint16(26,true) + lh.getUint16(28,true);
     const blob = file.slice(dataOff, dataOff + f.compSize);
     const room = Math.min(MAX_ENTRY_BYTES, MAX_TOTAL_BYTES - total);
@@ -838,7 +844,13 @@ async function extractZip(file){
     if (f.method === 0){
       if (blob.size > room) throw new Error(TOO_BIG);
       buf = await blob.arrayBuffer();
-    } else if (f.method === 8) buf = await inflateCapped(blob, room);
+    } else if (f.method === 8){
+      // A damaged deflate stream rejects with a bare DOMException; say which file
+      // and what to do about it instead.
+      try { buf = await inflateCapped(blob, room); }
+      catch(e){ throw e.message === TOO_BIG ? e
+        : new Error("Couldn't unpack " + f.name + " from that .zip. The archive looks damaged."); }
+    }
     else throw new Error("Unsupported zip compression (method " + f.method + ")");
     total += buf.byteLength;
     out.push({rel: f.name, buf});
