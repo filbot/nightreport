@@ -19,7 +19,9 @@
 <style>
 :root{
   color-scheme:light;
-  --paper:#F6EFE2; --sheet:#FFFDF6; --ink:#191713; --ink-2:#4F4A40; --ink-3:#857D6E;
+  /* --ink-3 carries every piece of small print. At #857D6E it measured 4.00:1 on
+     --sheet, under the 4.5:1 AA floor; this clears it on both --sheet and --paper. */
+  --paper:#F6EFE2; --sheet:#FFFDF6; --ink:#191713; --ink-2:#4F4A40; --ink-3:#736B5A;
   --rule:#E7DCC6; --line:#191713;
   --graph:#2B59C3; --yellow:#FFC93C; --on-yellow:#191713;
   --good:#3E6B1F; --good-bg:#DFF0C8; --warn:#8A6200; --warn-bg:#FBEBBB;
@@ -49,7 +51,7 @@ header.top{padding:22px 28px 0; display:flex; justify-content:space-between; ali
 main{padding:0 28px 28px}
 .state{padding:28px 0}
 h1,.h1{font-family:var(--display); font-weight:800; font-size:23px; letter-spacing:-.01em; margin:0 0 8px}
-p.sub{color:var(--ink-2); margin:0 0 18px; font:13px/1.7 var(--mono)}
+p.sub{color:var(--ink-2); margin:0 0 18px; font:14.5px/1.65 var(--body)}
 .pill{display:inline-block; font:12px/1 var(--body); font-weight:700;
   background:var(--yellow); color:var(--on-yellow); border:2px solid var(--line);
   border-radius:999px; padding:6px 12px; box-shadow:2px 2px 0 var(--line); margin-bottom:12px}
@@ -88,17 +90,20 @@ button.btn-text:active{transform:none; box-shadow:none}
 .status[data-busy="1"]::after{content:"▮"; animation:blink 1s steps(1) infinite; margin-left:2px}
 .status[data-ok="1"]{color:var(--good); font-weight:700}
 .status[data-ok="1"]::before{content:"✓ "; font-weight:800}
-.fineprint{font:11px/1.7 var(--mono); color:var(--ink-3); text-align:center; max-width:440px; margin:18px auto 0}
+.fineprint{font:12px/1.65 var(--body); color:var(--ink-3); text-align:center; max-width:460px; margin:18px auto 0}
 .fineprint a{color:inherit}
 details{margin-top:36px; border:1.5px solid var(--line); border-radius:12px; background:var(--sheet); box-shadow:2px 2px 0 var(--line)}
 summary{cursor:pointer; font-weight:700; font-size:14px; padding:12px 16px; list-style:none; display:flex; justify-content:space-between; align-items:center}
 summary::-webkit-details-marker{display:none}
 summary::after{content:"+"; font-family:var(--display); font-weight:900; font-size:18px}
 details[open] summary::after{content:"–"}
-details .inner{padding:0 16px 6px; font:12.5px/1.75 var(--mono); color:var(--ink-2)}
+details .inner{padding:0 16px 6px; font:13.5px/1.65 var(--body); color:var(--ink-2)}
 details .inner p{margin:0 0 10px}
+.debug-row{text-align:center; margin:18px 0 14px}
 @keyframes blink{50%{opacity:0}}
 .hidden{display:none}
+.center{text-align:center}
+.actions.actions-end{margin-top:22px}
 .overall{display:flex; justify-content:space-between; align-items:center; padding:4px 0 18px; gap:14px}
 .overall .h1{margin:0}
 .overall .meta{font:12px var(--mono); color:var(--ink-3); margin-top:5px; display:flex; align-items:center; gap:7px}
@@ -116,7 +121,9 @@ dialog::backdrop{background:rgba(20,15,8,.5)}
 dialog h2{font-family:var(--display); font-weight:800; font-size:18px; margin:0 0 10px}
 dialog p{font:13.5px/1.7 var(--body); color:var(--ink-2); margin:0 0 12px}
 dialog form{margin:6px 0 0; text-align:right}
-dialog button:focus,dialog button:focus-visible{outline:none}
+/* Suppress the ring for pointer focus only. Killing :focus-visible too left the
+   dialog's only control with no visible keyboard focus at all. */
+dialog button:focus:not(:focus-visible){outline:none}
 .big-grade{font-family:var(--display); font-weight:900; font-size:40px; line-height:1;
   color:var(--ink); background:var(--yellow); border:2px solid var(--line); border-radius:14px;
   box-shadow:var(--shadow); padding:12px 0; width:76px; text-align:center; flex:none}
@@ -134,8 +141,12 @@ dialog button:focus,dialog button:focus-visible{outline:none}
   background:var(--sheet); border:2px solid var(--line); box-shadow:2px 2px 0 var(--line)}
 .chip.na{color:var(--ink-3); border-style:dashed; box-shadow:none}
 .row h2{font-size:15px; font-weight:700; margin:0 0 3px}
-.row p{margin:0; font:12.5px/1.6 var(--mono); color:color-mix(in srgb, var(--ink) 78%, transparent)}
-.row .val{font:11.5px var(--mono); color:color-mix(in srgb, var(--ink) 55%, transparent); margin-top:4px}
+/* Voice rule: mono is what the machine reported, the body face is us explaining it.
+   These sentences are the most-read text in the app and were set in the data voice. */
+.row p{margin:0; font:13.5px/1.55 var(--body); color:color-mix(in srgb, var(--ink) 78%, transparent)}
+/* 55% measured 3.60:1 on the watch-colour row; 63% clears AA on all four. */
+.row .val{font:11.5px var(--mono); color:color-mix(in srgb, var(--ink) 63%, transparent);
+  margin-top:5px; font-variant-numeric:tabular-nums}
 .badge{display:inline-block; font:11px/1 var(--body); font-weight:700; color:var(--warn);
   background:var(--warn-bg); border:1.5px solid var(--line); border-radius:999px;
   padding:3px 9px; margin-left:6px; vertical-align:1px}
@@ -162,15 +173,18 @@ dialog button:focus,dialog button:focus-visible{outline:none}
   .step.done .tick{animation:none}
   .state.leaving{transition:none}
 }
+/* Proximity: the KPI strip is its own group, so it has to sit further from the last
+   grade row (14px apart) than its own tiles do from each other (8px). At 2px it read
+   as a tail of the final row. */
 .kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(96px,1fr)); gap:8px;
-  padding-top:6px; margin-top:2px}
+  margin-top:22px}
 .kpi{border:1.5px solid var(--line); border-radius:9px; box-shadow:2px 2px 0 var(--line); padding:5px 9px 6px;
   background:color-mix(in srgb, var(--ink) 4%, var(--sheet))}
 .kpi label{display:block; font:10px var(--mono); color:color-mix(in srgb, var(--ink) 62%, transparent); white-space:nowrap}
 .kpi output{font-family:var(--display); font-weight:800; font-size:15px; font-variant-numeric:tabular-nums lining-nums}
 footer{margin-top:22px; padding-top:18px; border-top:2px solid var(--line);
   display:flex; flex-direction:column; gap:15px}
-footer .f-block{font:12px/1.75 var(--mono); color:var(--ink-2); max-width:560px}
+footer .f-block{font:13px/1.65 var(--body); color:var(--ink-2); max-width:60ch}
 footer .f-label{display:block; font:700 10.5px/1 var(--body); letter-spacing:.09em; text-transform:uppercase;
   color:var(--ink-3); margin-bottom:4px}
 footer .f-block a{color:inherit}
@@ -274,7 +288,7 @@ footer .f-tech{font:11px var(--mono); color:var(--ink-3); text-align:center; mar
           <p><strong>Testing an unverified ResMed model</strong> (like an AirCurve)? Load your card, then copy a
           debug report to share on GitHub. It contains only file structure and signal labels, never your
           measurements, dates, or serial numbers.</p>
-          <div style="text-align:center; margin:18px 0 14px"><button id="debug-btn" type="button">Copy debug report</button></div>
+          <div class="debug-row"><button id="debug-btn" type="button">Copy debug report</button></div>
         </div>
       </details>
       <p class="status" id="status" role="status" aria-live="polite"></p>
@@ -287,7 +301,7 @@ footer .f-tech{font:11px var(--mono); color:var(--ink-3); text-align:center; mar
     </section>
 
     <section id="loading" class="state hidden" aria-live="polite">
-      <h2 class="h1" id="load-title" style="text-align:center">Analyzing your therapy data</h2>
+      <h2 class="h1 center" id="load-title">Analyzing your therapy data</h2>
       <div class="steps">
         <div class="step" id="step-0"><span class="tick">✓</span>Reading SD card files</div>
         <div class="step" id="step-1"><span class="tick">✓</span>Parsing therapy summary</div>
@@ -301,7 +315,7 @@ footer .f-tech{font:11px var(--mono); color:var(--ink-3); text-align:center; mar
       <div class="overall">
         <div>
           <div class="pill" id="report-pill">Your results</div>
-          <h2 class="h1" style="margin:0">Therapy report card</h2>
+          <h2 class="h1">Therapy report card</h2>
           <div class="meta"><span id="meta">—</span><button class="info-btn" id="meta-info"
             type="button" aria-label="About this data">i</button></div>
         </div>
@@ -319,7 +333,7 @@ footer .f-tech{font:11px var(--mono); color:var(--ink-3); text-align:center; mar
         (pressure, airway) look at the last 14. Older nights still count toward the totals.</p>
         <form method="dialog"><button class="primary">Got it</button></form>
       </dialog>
-      <div class="actions" style="margin-top:22px">
+      <div class="actions actions-end">
         <button class="primary" id="print-doc">Print for your doctor →</button>
         <button id="again" class="btn-text">Analyze new data</button>
       </div>
