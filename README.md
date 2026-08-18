@@ -120,7 +120,9 @@ Any static host works. To fork without analytics, delete the two `cloudflareinsi
 ---
 
 > [!IMPORTANT]
-> **Not a medical device.** NightReport describes what the machine recorded. It does not diagnose and does not recommend settings changes. The printable summary is for discussing therapy with a sleep provider.
+> **Not a medical device.** NightReport describes what the machine recorded. It does not diagnose and does not recommend settings changes. The printable summary is for discussing therapy with a sleep provider. Provided free and as-is, without warranty of any kind.
+
+NightReport is an independent project and is not affiliated with or endorsed by ResMed. ResMed, AirSense, AirCurve and AirMini are trademarks of ResMed, used here only to describe compatibility.
 
 ## License
 

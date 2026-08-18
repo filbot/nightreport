@@ -323,6 +323,11 @@ footer .f-tech{font:11px var(--mono); color:var(--ink-3); text-align:center; mar
       Turn off your wifi and the whole tool keeps working.
       Site traffic is counted anonymously with Cloudflare Web Analytics: no cookies, no personal identifiers, no cross-site tracking.
       Free and <a href="https://github.com/filbot/nightreport" rel="noopener">open source</a>, so every claim here is independently verifiable.</p>
+      <p class="fineprint">NightReport is a descriptive summary of what your machine recorded. It is not a medical
+      device, does not diagnose, and does not recommend therapy settings, so take those questions to your
+      sleep provider. Provided free and as-is, without warranty of any kind, under the
+      <a href="https://github.com/filbot/nightreport/blob/main/LICENSE" rel="noopener">MIT license</a>.
+      Not affiliated with or endorsed by ResMed.</p>
       <input type="file" id="dir-input" webkitdirectory multiple class="hidden">
       <input type="file" id="zip-input" accept=".zip,application/zip" class="hidden">
     </section>
@@ -356,6 +361,11 @@ footer .f-tech{font:11px var(--mono); color:var(--ink-3); text-align:center; mar
         therapy time that night.</p>
         <p>The grades mostly look at your most recent 30 nights, and the detailed cards
         (pressure, airway) look at the last 14. Older nights still count toward the totals.</p>
+        <p>A grade is a fixed cutoff applied to the numbers your machine wrote down, not an assessment of
+        your health. Breathing interruptions grade against the commonly cited AHI thresholds, where under
+        5 an hour is considered well controlled. Mask fit, pressure and airway grade on the share of nights,
+        or of the night, that crossed the limit the machine itself records against. Every cutoff is visible
+        in the source.</p>
         <form method="dialog"><button class="primary">Got it</button></form>
       </dialog>
       <div class="actions actions-end">
@@ -371,13 +381,16 @@ footer .f-tech{font:11px var(--mono); color:var(--ink-3); text-align:center; mar
         </div>
         <div class="f-block">
           <span class="f-label">Not medical advice</span>
-          This is a descriptive summary of what your machine recorded. Take settings and treatment
-          questions to your sleep provider.
+          This is a descriptive summary of what your machine recorded. It is not a medical device, does not
+          diagnose, and does not recommend therapy settings. Take settings and treatment questions to your
+          sleep provider.
         </div>
         <div class="f-block">
           <span class="f-label">Open source</span>
           Free and independently verifiable.
           <a href="https://github.com/filbot/nightreport" rel="noopener">view the source</a>.
+          Provided as-is, without warranty of any kind, under the MIT license.
+          Not affiliated with or endorsed by ResMed.
         </div>
         <div class="f-tech" id="perf"></div>
       </footer>
@@ -1084,9 +1097,9 @@ function setOverall(g){
   if (PTS[g] != null){
     $("summary").dataset.grade = gradeClass(g);
     gist.textContent =
-      PTS[g] >= 3.7 ? "Your therapy is working well. Nothing here needs attention." :
-      PTS[g] >= 2.7 ? "Your therapy is mostly on track. A couple of areas are worth a look below." :
-      "Some areas below need attention. Worth bringing up with your sleep provider.";
+      PTS[g] >= 3.7 ? "Your numbers are in the range usually considered well controlled. Nothing here stands out." :
+      PTS[g] >= 2.7 ? "Most of your numbers look good. A couple of areas are worth a look below." :
+      "Several numbers fall outside the usual ranges. Worth bringing up with your sleep provider.";
   }
   if (el.textContent === g) return;
   const firstSet = el.textContent === "–";
@@ -1357,7 +1370,7 @@ function buildDoctor(){
     "<table>"+rows+"</table>" +
     '<p class="note">Prepared by the patient from device SD-card data using NightReport, a free open-source tool. ' +
     "All analysis ran locally in the patient's browser and no data was transmitted. Descriptive only. Not a medical device " +
-    "and not medical advice.</p>";
+    "and not medical advice. NightReport is not affiliated with or endorsed by ResMed.</p>";
 }
 $("print-doc").onclick = () => { buildDoctor(); window.print(); };
 $("meta-info").onclick = () => $("meta-dialog").showModal();
