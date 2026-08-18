@@ -24,7 +24,7 @@ No install, no account, no upload. Free and open source under the MIT license.
 | **AirMini** | No SD card, so there is nothing to read |
 | **Philips, Löwenstein, others** | Different proprietary formats. Not planned |
 
-If you have an AirCurve, you can help confirm it: load your card, use **Copy debug report** in the app's data guide, and open an issue with the result. That report contains file structure and signal labels only — no measurements, dates, or serial numbers.
+If you have an AirCurve, you can help confirm it: load your card, use **Copy debug report** in the app's data guide, and open an issue with the result. That report contains file structure and signal labels only, no measurements, dates, or serial numbers.
 
 For unsupported machines, [OSCAR](https://www.sleepfiles.com/OSCAR/) is a free desktop app that covers most brands and goes considerably deeper. NightReport detects a Philips card and says so, rather than failing with a generic error.
 
@@ -32,7 +32,7 @@ For unsupported machines, [OSCAR](https://www.sleepfiles.com/OSCAR/) is a free d
 
 ## Getting your data
 
-1. With the machine idle — not during therapy — press the SD card in gently so it pops out.
+1. With the machine idle, not during therapy, press the SD card in gently so it pops out.
 2. Put it in a card reader. A basic USB or USB-C reader costs about $10 and works with phones.
 3. Choose the card's folder in the app, or zip it first on mobile.
 
@@ -115,7 +115,7 @@ Opening `index.html` straight from disk mostly works. Some browsers restrict Blo
 
 Cloudflare Pages: connect the repo, no build command, output directory `/`. Enable Web Analytics in project settings for visit counts. `_headers` ships the CSP automatically.
 
-Any static host works. To fork without analytics, delete the two `cloudflareinsights` entries from the CSP — the site then makes no external requests at all.
+Any static host works. To fork without analytics, delete the two `cloudflareinsights` entries from the CSP, and the site then makes no external requests at all.
 
 ---
 

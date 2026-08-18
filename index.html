@@ -411,7 +411,7 @@ const norm = s => s.toLowerCase().replace(/[^a-z0-9.]/g, "");
 // Every number below is a claim made by a file that came off a device, not a fact.
 // A corrupt or hostile header can say the file holds more signals or records than
 // it does, so nothing here is used before it has been checked against the real size.
-const BAD_EDF = "One of the EDF files has an unreadable header. The file looks corrupt — try copying the card again.";
+const BAD_EDF = "One of the EDF files has an unreadable header. The file looks corrupt. Try copying the card again.";
 
 function parseEDF(buf){
   if (buf.byteLength < 256) throw new Error(BAD_EDF);
@@ -825,7 +825,7 @@ const TOO_BIG_DIR = "That folder holds far more data than a CPAP card does, so i
 
 // deflate-raw output is only trustworthy once counted: the central directory can
 // understate the real size, so cap the bytes as they arrive. Read through a reader
-// rather than Response.arrayBuffer() — erroring a stream mid-pipe surfaces as an
+// rather than Response.arrayBuffer(), because erroring a stream mid-pipe surfaces as an
 // opaque "Failed to fetch", which would bury the real reason.
 async function inflateCapped(blob, limit){
   const rd = blob.stream().pipeThrough(new DecompressionStream("deflate-raw")).getReader();
@@ -985,7 +985,7 @@ function analyze(entries){
       ev.preventDefault();
       if (!gotMsg){ worker.terminate(); runInline(entries); }
       // Past the first message, falling back would redo finished work. Report it
-      // instead — and give the loading screen a way out, since it has none.
+      // instead, and give the loading screen a way out, since it has none.
       else if (load) failLoading(ev.message || "Worker error");
       else status("⚠ " + (ev.message || "Worker error"));
     };
@@ -1087,7 +1087,7 @@ function swapSections(hideEl, showEl, after){
   if (!document.startViewTransition || reduced) return go();
   // .ready rejects whenever the transition is skipped: a second swap interrupting
   // this one, or a hidden tab. go() has already run either way, so there is nothing
-  // to recover — this only keeps an unhandled rejection out of the console. Errors
+  // to recover, and this only keeps an unhandled rejection out of the console. Errors
   // thrown by go() itself surface through updateCallbackDone and stay unhandled.
   document.startViewTransition(go).ready.catch(()=>{});
 }
