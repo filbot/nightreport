@@ -482,6 +482,12 @@ function findSig(edf, want, avoid){
   return best;
 }
 
+// A night, and the date on a doctor's summary, are calendar dates rather than
+// instants. toISOString() converts to UTC first, so a 22:00 recording start
+// rolled forward to the next day for anyone west of Greenwich.
+// ponytail: Temporal.PlainDate is the right type; swap when Safari ships it.
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+
 function percentile(arr, p){
   if (!arr.length) return NaN;
   const a = Float64Array.from(arr).sort();
@@ -570,7 +576,7 @@ function analyzeSTR(edf){
   return {
     compliancePct, settings,
     totalDays: n, usedNights: usedIdx.length,
-    from: first.toISOString().slice(0,10), to: lastD.toISOString().slice(0,10),
+    from: ymd(first), to: ymd(lastD),
     avgHrs: mean(pick(dur, last30).map(durHrs)),
     avgHrsAll: mean(pick(dur, usedIdx).map(durHrs)),
     ahiMedian30: percentile(pick(ahi, last30), 0.5),
@@ -1349,7 +1355,7 @@ function buildDoctor(){
   const s = LAST.s; if (!s) return;
   const d = LAST.d;
   const f1 = v => Number.isFinite(v) ? v.toFixed(1) : "—";
-  const today = new Date().toISOString().slice(0,10);
+  const today = ymd(new Date());
   const set = s.settings || {};
   const range = (set.minPress!=null && set.maxPress!=null) ? f1(set.minPress)+"–"+f1(set.maxPress)+" cmH2O" : "—";
   let rows = "";
@@ -1407,6 +1413,157 @@ $("demo").onclick = () => {
       perf:{ ms:112, mb:41.2, files:47 } }});
   }, 680);
 };
+
+/* ── Self-check ───────────────────────────────────────────────────────────────
+   Load ?selftest to run. Covers the arithmetic that fails silently: unit sniffs,
+   digital-to-physical gain, percentile, header bounds, annotation parsing. A
+   wrong answer there looks like a plausible number on a page handed to a doctor.
+   The UI is not covered, it fails visibly.
+   ponytail: asserts and a <pre>, no framework, no build step. */
+if (location.search.includes("selftest")) (function(){
+  const results = [];
+  const t = (name, fn) => {
+    try { fn(); results.push([true, name]); }
+    catch (e) { results.push([false, name + "\n    " + e.message]); }
+  };
+  const eq = (a, b, msg) => { if (a !== b) throw new Error(`${msg||"value"}: expected ${b}, got ${a}`); };
+  const near = (a, b, msg) => { if (!(Math.abs(a-b) < 1e-6)) throw new Error(`${msg||"value"}: expected ~${b}, got ${a}`); };
+  const throws = (fn, msg) => { try { fn(); } catch (e) { return; } throw new Error(`${msg||"call"}: expected a throw, got none`); };
+
+  // Minimal EDF writer: fixed-width ASCII header fields, int16 LE samples.
+  const pad = (v, w) => String(v).padEnd(w).slice(0, w);
+  function buildEDF(o){
+    const sig = o.sig, ns = sig.length;
+    const recBytes = sig.reduce((a,s)=>a+s.spr*2, 0);
+    const recs = sig[0].data.length / sig[0].spr;
+    const col = (get, w) => sig.map(s=>pad(get(s), w)).join("");
+    const h = pad("0",8) + pad("",80) + pad("",80)
+            + pad(o.start||"01.02.24",8) + pad(o.time||"22.00.00",8)
+            + pad(256+ns*256,8) + pad("",44)
+            + pad(o.declaredRecs != null ? o.declaredRecs : recs, 8)
+            + pad(o.recDur != null ? o.recDur : 1, 8) + pad(ns,4)
+            + col(s=>s.label,16) + col(()=>"",80) + col(s=>s.dim||"",8)
+            + col(s=>s.pmin,8) + col(s=>s.pmax,8) + col(s=>s.dmin,8) + col(s=>s.dmax,8)
+            + col(()=>"",80) + col(s=>s.spr,8) + col(()=>"",32);
+    const buf = new ArrayBuffer(h.length + recs*recBytes);
+    const u8 = new Uint8Array(buf), dv = new DataView(buf);
+    for (let i=0;i<h.length;i++) u8[i] = h.charCodeAt(i) & 0xff;
+    let off = h.length;
+    for (let r=0;r<recs;r++) for (const s of sig)
+      for (let j=0;j<s.spr;j++){ dv.setInt16(off, s.data[r*s.spr+j]|0, true); off += 2; }
+    return buf;
+  }
+  // Identity scaling, so a test's stored integers are also its physical values.
+  const ident = (label, data, spr) =>
+    ({ label, dim:"", pmin:-32768, pmax:32767, dmin:-32768, dmax:32767, spr: spr||1, data });
+  const strOf = (...sig) => analyzeSTR(parseEDF(buildEDF({ sig })));
+
+  t("percentile sorts numerically, not lexically", ()=>{
+    eq(percentile([2,10,1], 0.5), 2, "median of 1,2,10");
+    eq(percentile([1,2,3,4], 0.5), 2.5, "interpolated median");
+    eq(percentile([5], 0.95), 5, "single value");
+    if (!Number.isNaN(percentile([], 0.5))) throw new Error("empty input should be NaN");
+  });
+
+  t("readSignal applies the digital-to-physical gain", ()=>{
+    const edf = parseEDF(buildEDF({ sig:[
+      { label:"Press.2s", dim:"cmH2O", pmin:0, pmax:40, dmin:0, dmax:4000, spr:2, data:[0,2000,4000,1000] }
+    ]}));
+    eq(edf.nRec, 2, "record count");
+    const v = readSignal(edf, 0);
+    near(v[0], 0); near(v[1], 20); near(v[2], 40); near(v[3], 10);
+  });
+
+  t("readSignal picks its own channel out of an interleaved record", ()=>{
+    const edf = parseEDF(buildEDF({ sig:[ident("A",[1,2]), ident("B",[10,20])] }));
+    eq(Array.from(readSignal(edf,1)).join(), "10,20", "second channel");
+  });
+
+  t("the header's record count is clamped to what the file actually holds", ()=>{
+    const edf = parseEDF(buildEDF({ declaredRecs:100000, sig:[ident("Duration",[1,2,3])] }));
+    eq(edf.nRec, 3, "records");
+  });
+
+  t("corrupt headers are refused rather than guessed at", ()=>{
+    throws(()=>parseEDF(new ArrayBuffer(10)), "truncated file");
+    const buf = buildEDF({ sig:[ident("A",[1])] });
+    const u8 = new Uint8Array(buf);
+    for (let i=0;i<4;i++) u8[252+i] = "9999".charCodeAt(i);   // more signals than the file can hold
+    throws(()=>parseEDF(buf), "signal-count overrun");
+  });
+
+  t("an impossible signal length is refused before it allocates", ()=>{
+    const edf = parseEDF(buildEDF({ sig:[ident("Duration",[1])] }));
+    edf.nRec = 1e9; edf.sig[0].spr = 1000;
+    throws(()=>readSignal(edf, 0), "60M-sample guard");
+  });
+
+  t("findSig prefers an exact label and honours the avoid list", ()=>{
+    const edf = parseEDF(buildEDF({ sig:[ident("MaskPress.2s",[1]), ident("Press.2s",[2])] }));
+    eq(findSig(edf, "press"), 0, "unfiltered, the mask channel matches first");
+    eq(findSig(edf, "press", ["mask"]), 1, "avoided");
+    eq(findSig(edf, "press.2s"), 1, "exact match beats an earlier substring match");
+    eq(findSig(edf, "flowlim"), -1, "missing signal");
+  });
+
+  t("parseTALs reads onset, duration and text, and drops the recording marker", ()=>{
+    const tal = "+0\x14Recording starts\x14\x00+120.5\x1510\x14Obstructive Apnea\x14\x00";
+    const spr = Math.ceil(tal.length/2);
+    const edf = parseEDF(buildEDF({ sig:[ident("EDF Annotations", new Array(spr).fill(0), spr)] }));
+    const u8 = new Uint8Array(edf.buf);
+    for (let i=0;i<tal.length;i++) u8[edf.headerBytes+i] = tal.charCodeAt(i);
+    const ev = parseTALs(edf);
+    eq(ev.length, 1, "event count");
+    eq(ev[0].text, "Obstructive Apnea", "text");
+    near(ev[0].onset, 120.5, "onset");
+    eq(ev[0].dur, 10, "duration");
+  });
+
+  t("nightly hours read the same whether the card stores seconds or minutes", ()=>{
+    const ahi = ident("AHI", Array(30).fill(3));
+    near(strOf(ident("Duration", Array(30).fill(25200)), ahi).avgHrs, 7, "seconds");
+    near(strOf(ident("Duration", Array(30).fill(420)),   ahi).avgHrs, 7, "minutes");
+  });
+
+  t("leak is normalised to L/min whichever unit the card stores", ()=>{
+    const dur = ident("Duration", Array(30).fill(25200));
+    const leak = (dim, pmax, dmax, v) =>
+      ({ label:"Leak.95", dim, pmin:0, pmax, dmin:0, dmax, spr:1, data:Array(30).fill(v) });
+    near(strOf(dur, leak("L/s",   2, 2000, 400)).leak95Med, 24, "L/s by label");
+    near(strOf(dur, leak("",      2, 2000, 400)).leak95Med, 24, "L/s inferred from the range");
+    near(strOf(dur, leak("L/min", 120, 1200, 240)).leak95Med, 24, "already L/min");
+  });
+
+  t("the report's date range is the card's calendar dates, in any timezone", ()=>{
+    // toISOString() converted to UTC first, so a 22:00 start read as the next
+    // day west of Greenwich. The header says 1 February 2024, 30 nights ends 1 March.
+    const r = analyzeSTR(parseEDF(buildEDF({ start:"01.02.24", time:"22.00.00",
+      sig:[ident("Duration", Array(30).fill(25200))] })));
+    eq(r.from, "2024-02-01", "first night");
+    eq(r.to, "2024-03-01", "last night, across a leap February");
+  });
+
+  t("compliance counts nights of 4 h or more across the last 30 days", ()=>{
+    const r = strOf(ident("Duration", Array(10).fill(25200).concat(Array(20).fill(10800))));
+    eq(r.compliancePct, 33, "10 of 30 nights at 7 h");
+    eq(r.totalDays, 30, "days");
+  });
+
+  t("unused nights are excluded from the averages but not from compliance", ()=>{
+    const r = strOf(ident("Duration", Array(20).fill(25200).concat(Array(10).fill(0))));
+    eq(r.usedNights, 20, "used nights");
+    near(r.avgHrsAll, 7, "average over used nights only");
+    eq(r.compliancePct, 67, "20 of 30 calendar days");
+  });
+
+  const failed = results.filter(r=>!r[0]).length;
+  document.title = (failed ? "FAIL" : "PASS") + " — NightReport self-check";
+  const out = document.createElement("pre");
+  out.style.cssText = "font:13px/1.7 ui-monospace,SFMono-Regular,monospace;padding:2rem;white-space:pre-wrap";
+  out.textContent = results.map(r=>(r[0] ? "PASS  " : "FAIL  ") + r[1]).join("\n")
+    + `\n\n${results.length-failed}/${results.length} passed`;
+  addEventListener("DOMContentLoaded", ()=>document.body.replaceChildren(out));
+})();
 </script>
 <!-- ── Cloudflare Web Analytics ─────────────────────────────────────────────
   Two ways to enable (pick one):
