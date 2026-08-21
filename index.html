@@ -1423,8 +1423,8 @@ $("demo").onclick = () => {
 if (location.search.includes("selftest")) (function(){
   const results = [];
   const t = (name, fn) => {
-    try { fn(); results.push([true, name]); }
-    catch (e) { results.push([false, name + "\n    " + e.message]); }
+    try { fn(); results.push({ ok:true, name }); }
+    catch (e) { results.push({ ok:false, name, detail:e.message }); }
   };
   const eq = (a, b, msg) => { if (a !== b) throw new Error(`${msg||"value"}: expected ${b}, got ${a}`); };
   const near = (a, b, msg) => { if (!(Math.abs(a-b) < 1e-6)) throw new Error(`${msg||"value"}: expected ~${b}, got ${a}`); };
@@ -1556,13 +1556,35 @@ if (location.search.includes("selftest")) (function(){
     eq(r.compliancePct, 67, "20 of 30 calendar days");
   });
 
-  const failed = results.filter(r=>!r[0]).length;
+  // Plain text for the console and for the CI runner, which reads it rather than
+  // the DOM. The page itself borrows the loading state's step list.
+  const failed = results.filter(r=>!r.ok).length;
+  const tally = `${results.length-failed} of ${results.length} passed`;
+  console.log(results.map(r => (r.ok ? "PASS  " : "FAIL  ") + r.name
+    + (r.detail ? "\n        " + r.detail : "")).join("\n") + "\n\n" + tally);
   document.title = (failed ? "FAIL" : "PASS") + " — NightReport self-check";
-  const out = document.createElement("pre");
-  out.style.cssText = "font:13px/1.7 ui-monospace,SFMono-Regular,monospace;padding:2rem;white-space:pre-wrap";
-  out.textContent = results.map(r=>(r[0] ? "PASS  " : "FAIL  ") + r[1]).join("\n")
-    + `\n\n${results.length-failed}/${results.length} passed`;
-  addEventListener("DOMContentLoaded", ()=>document.body.replaceChildren(out));
+
+  const cook = v => String(v).replace(/[&<>]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;" })[c]);
+  const badTick = 'style="background:var(--bad-bg); color:var(--bad); box-shadow:2px 2px 0 var(--line)"';
+  // A failure is the thing you came to read, so it takes the darkest ink here.
+  const row = r => `<div class="step ${r.ok ? "done" : ""}" style="align-items:flex-start${
+      r.ok ? "" : "; color:var(--ink)"}">`
+    + `<span class="tick" ${r.ok ? "" : badTick}>${r.ok ? "✓" : "✗"}</span>`
+    + `<span>${cook(r.name)}${r.detail
+        ? `<span style="display:block; color:var(--bad); margin-top:3px">${cook(r.detail)}</span>` : ""}</span>`
+    + "</div>";
+
+  addEventListener("DOMContentLoaded", ()=>{
+    const page = document.createElement("main");
+    page.innerHTML = `<section class="state">
+        <h2 class="h1 center">Self-check</h2>
+        <div class="steps" style="max-width:34rem">${results.map(row).join("")}</div>
+        <p class="status" ${failed ? 'style="color:var(--bad); font-weight:700"' : 'data-ok="1"'}>${
+          failed ? "✗ " + tally : tally}</p>
+      </section>`;
+    document.body.replaceChildren(page);
+    document.body.style.cssText = "min-height:100svh; display:grid; place-items:center";
+  });
 })();
 </script>
 <!-- ── Cloudflare Web Analytics ─────────────────────────────────────────────
