@@ -482,6 +482,12 @@ function findSig(edf, want, avoid){
   return best;
 }
 
+// A night, and the date on a doctor's summary, are calendar dates rather than
+// instants. toISOString() converts to UTC first, so a 22:00 recording start
+// rolled forward to the next day for anyone west of Greenwich.
+// ponytail: Temporal.PlainDate is the right type; swap when Safari ships it.
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+
 function percentile(arr, p){
   if (!arr.length) return NaN;
   const a = Float64Array.from(arr).sort();
@@ -570,7 +576,7 @@ function analyzeSTR(edf){
   return {
     compliancePct, settings,
     totalDays: n, usedNights: usedIdx.length,
-    from: first.toISOString().slice(0,10), to: lastD.toISOString().slice(0,10),
+    from: ymd(first), to: ymd(lastD),
     avgHrs: mean(pick(dur, last30).map(durHrs)),
     avgHrsAll: mean(pick(dur, usedIdx).map(durHrs)),
     ahiMedian30: percentile(pick(ahi, last30), 0.5),
@@ -1349,7 +1355,7 @@ function buildDoctor(){
   const s = LAST.s; if (!s) return;
   const d = LAST.d;
   const f1 = v => Number.isFinite(v) ? v.toFixed(1) : "—";
-  const today = new Date().toISOString().slice(0,10);
+  const today = ymd(new Date());
   const set = s.settings || {};
   const range = (set.minPress!=null && set.maxPress!=null) ? f1(set.minPress)+"–"+f1(set.maxPress)+" cmH2O" : "—";
   let rows = "";
@@ -1526,6 +1532,15 @@ if (location.search.includes("selftest")) (function(){
     near(strOf(dur, leak("L/s",   2, 2000, 400)).leak95Med, 24, "L/s by label");
     near(strOf(dur, leak("",      2, 2000, 400)).leak95Med, 24, "L/s inferred from the range");
     near(strOf(dur, leak("L/min", 120, 1200, 240)).leak95Med, 24, "already L/min");
+  });
+
+  t("the report's date range is the card's calendar dates, in any timezone", ()=>{
+    // toISOString() converted to UTC first, so a 22:00 start read as the next
+    // day west of Greenwich. The header says 1 February 2024, 30 nights ends 1 March.
+    const r = analyzeSTR(parseEDF(buildEDF({ start:"01.02.24", time:"22.00.00",
+      sig:[ident("Duration", Array(30).fill(25200))] })));
+    eq(r.from, "2024-02-01", "first night");
+    eq(r.to, "2024-03-01", "last night, across a leap February");
   });
 
   t("compliance counts nights of 4 h or more across the last 30 days", ()=>{
