@@ -647,7 +647,7 @@ async function runPipeline(entries, post, yieldFn){
   }
   const dates = Object.keys(byDate).sort().slice(-14);
   const nights = [];
-  const events = { oa:0, ca:0, hyp:0, other:0 };
+  const events = { oa:0, ca:0, hyp:0, rera:0, other:0 };
   let oximetry = null;
   let lastTrace = null;
   for (let i=0;i<dates.length;i++){
@@ -664,6 +664,9 @@ async function runPipeline(entries, post, yieldFn){
         if (t.includes("obstructive")) events.oa++;
         else if (t.includes("central")) events.ca++;
         else if (t.includes("hypopnea")) events.hyp++;
+        // ponytail: the machine flags far fewer RERAs than a sleep lab scores, so this
+        // is reported as a floor, never rolled into an RDI.
+        else if (t.includes("rera")) events.rera++;
         else events.other++;
       }
     }
@@ -676,6 +679,7 @@ async function runPipeline(entries, post, yieldFn){
     swingPct: mean(nights.map(n=>n.swingPct)),
     flHiPct: mean(nights.map(n=>n.flHiPct)),
     leakMinAvg: mean(nights.map(n=>n.leakMin)),
+    hours: nights.reduce((t,n)=>t+n.hours,0),
     events,
     oximetry: oximetry === true,
     trace: lastTrace ? { points: lastTrace.trace, pMin: lastTrace.pMin, pMax: lastTrace.pMax } : null
@@ -1154,7 +1158,9 @@ function buildSummary(s){
 
   row("ahi", G.ahi, "Breathing interruptions",
     "How many times an hour your breathing paused or went shallow while you slept. " +
-    "Doctors consider under 5 well controlled, and you averaged " + fmt(s.ahiMedian30) + ".",
+    "Doctors consider under 5 well controlled, and you averaged " + fmt(s.ahiMedian30) + ". " +
+    "It only counts clear pauses, not subtler disturbance, so a low number here is not proof " +
+    "the night was undisturbed. Open airway below covers the rest.",
     "blocked airway " + fmt(s.oaiMed) + " · signal-related " + fmt(s.caiMed) + " · shallow " + fmt(s.hiMed) + " per hour (AHI)");
   row("stability", null, "Steady air pressure",
     "The machine held a smooth, even pressure instead of jumping around. Big swings can " +
@@ -1183,6 +1189,11 @@ function buildSummary(s){
   setOverall(overallGrade([G.ahi, G.adherence, G.leak]));
 }
 
+// Device-flagged RERAs per hour, or null when the machine wrote none.
+function reraIdx(d){
+  return d && d.events && d.events.rera && d.hours > 0 ? d.events.rera / d.hours : null;
+}
+
 function renderNights(d){
   LAST.d = d; buildDoctor();
   if (d.analyzed){
@@ -1194,7 +1205,8 @@ function renderNights(d){
     G.flowlim = scale(d.flHiPct, [[0.01,"A"],[0.03,"A−"],[0.06,"B"],[0.12,"C"]]);
     update("flowlim", G.flowlim, "Open airway",
       "How freely air flowed through your airway. A narrowed airway makes breathing harder " +
-      "even without a full pause. Yours was restricted about " + (d.flHiPct*100).toFixed(1) + "% of the night.",
+      "even without a full pause. Yours was restricted about " + (d.flHiPct*100).toFixed(1) + "% of the night." +
+      (reraIdx(d) ? " Your machine also flagged " + fmt(reraIdx(d)) + " effort-related arousals an hour, which the AHI leaves out." : ""),
       "recent pauses: " + d.events.oa + " blocked airway · " + d.events.ca + " signal-related · " + d.events.hyp + " shallow");
   } else {
     update("stability", "na", "Steady air pressure", "No nightly detail files found. Your machine may not have had the SD card inserted overnight. Pop it in tonight and detailed data starts recording.", null);
@@ -1359,6 +1371,9 @@ function buildDoctor(){
        "partial airway narrowing without full apnea");
     tr("Scored events (last "+d.analyzed+" nights)",
        d.events.oa+" obstructive apneas · "+d.events.ca+" central apneas · "+d.events.hyp+" hypopneas", null);
+    if (reraIdx(d))
+      tr("RERA (last "+d.analyzed+" nights)", d.events.rera+" flagged · "+f1(reraIdx(d))+"/h",
+         "respiratory effort related arousals, as flagged by the device and not included in its AHI; device flagging is a floor, not a scored RDI");
     tr("Oximetry", d.oximetry ? "recorded (see device data)" : "not recorded (no pulse oximeter attached)", null);
   }
   tr("Device settings", (set.mode||"—")+" · range "+range+(set.epr!=null ? " · EPR "+set.epr : ""),
@@ -1387,7 +1402,7 @@ $("demo").onclick = () => {
   setTimeout(()=>{
     onMsg({t:"status", data:"Analyzing night 14/14…"});
     onMsg({t:"nights", data:{ analyzed:14, swingPct:0.06, flHiPct:0.021,
-      leakMinAvg:6.2, events:{oa:9,ca:4,hyp:12,other:0}, oximetry:false,
+      leakMinAvg:6.2, hours:89.6, events:{oa:9,ca:4,hyp:12,rera:78,other:0}, oximetry:false,
       trace:{ points:Array.from({length:600},(_,i)=>9.8+Math.sin(i/38)*0.7+Math.sin(i/6)*0.3+(i>300&&i<380?(i-300)*0.035:0)+(i>=380&&i<440?2.8-(i-380)*0.03:0)), pMin:8.5, pMax:13.5 },
       perf:{ ms:112, mb:41.2, files:47 } }});
   }, 680);
