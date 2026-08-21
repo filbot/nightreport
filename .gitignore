@@ -3,3 +3,6 @@ tasks/
 
 # macOS
 .DS_Store
+
+# Agent context: local only, not part of the published site.
+CLAUDE.md
