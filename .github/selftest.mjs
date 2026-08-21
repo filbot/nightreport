@@ -23,13 +23,14 @@ for (const tz of ZONES) {
   process.env.TZ = tz;                    // node re-reads this per Date since v16
   const printed = [];
   const ctx = {
-    TextDecoder, console,
+    TextDecoder,
+    console: { log: (...a) => printed.push(a.join(" ")) },
     location: { search: "?selftest" },
     addEventListener: (_event, fn) => fn(),
     document: {
       title: "",
-      createElement: () => ({ style: {}, set textContent(v){ printed.push(v); } }),
-      body: { replaceChildren(){} }
+      createElement: () => ({ style: {}, innerHTML: "" }),
+      body: { style: {}, replaceChildren(){} }
     }
   };
   runInNewContext(source, ctx);
