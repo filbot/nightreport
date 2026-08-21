@@ -70,6 +70,8 @@ report card UI       progressive render: summary first, nightly detail streams i
 
 **Headers are treated as claims, not facts.** Record counts, signal counts, and sizes all come out of files written by a device, so each is checked against the real length of the file before use. Zip and folder inputs are both capped so a malformed archive can't exhaust memory.
 
+**RERAs are reported, an RDI is not.** The machine flags some respiratory effort related arousals and then leaves them out of its own AHI, so the report shows that rate separately on the airway card and in the doctor summary. It is a floor, not a scored RDI: a sleep lab scoring the same night off EEG would find more.
+
 ### What it reads
 
 ResMed's SD card layout, as written by an AirSense 10/11:
@@ -78,7 +80,7 @@ ResMed's SD card layout, as written by an AirSense 10/11:
 | --- | --- | --- |
 | `STR.edf` | One record per day: usage, AHI breakdown, pressures, leak, settings | Headline grades, compliance %, doctor summary |
 | `DATALOG/*/[ts]_PLD.edf` | 0.5 Hz pressure, leak, flow limitation, snore | Pressure stability, airway grades |
-| `DATALOG/*/[ts]_EVE.edf` | Scored events as EDF+D annotations | Event counts |
+| `DATALOG/*/[ts]_EVE.edf` | Scored events as EDF+D annotations | Event counts, including device-flagged RERAs |
 | `DATALOG/*/[ts]_SA2.edf` | Oximetry, if a sensor is attached | Presence detection |
 | `DATALOG/*/[ts]_BRP.edf` | 25 Hz flow/pressure waveforms | Skipped |
 
