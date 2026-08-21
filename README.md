@@ -42,7 +42,7 @@ Reading the card changes nothing on it. Pop it back in when you're done and logg
 
 ## How it works
 
-The whole app is `index.html`. No build step, no framework, no dependencies. Vanilla JS in two inline script blocks: the UI, and a parsing engine.
+The whole app is `index.html`. No build step, no framework, no dependencies. Vanilla JS in two inline script blocks: the UI, and a parsing engine. The only other code in the repo is a CI runner that re-runs the app's own self-check.
 
 ```
 SD card / zip
@@ -65,6 +65,8 @@ report card UI       progressive render: summary first, nightly detail streams i
 **Zip extraction.** Reads the zip central directory and inflates entries with the browser's native `DecompressionStream`, in about 60 lines. Only the files the analysis actually needs get decompressed.
 
 **Waveform files are never read.** BRP files are filtered out by filename before any bytes load, and nightly detail is capped at the 14 most recent sessions. A year of data parses in under a second.
+
+**A self-check ships with the app.** Load [`/?selftest`](https://nightreport.app/?selftest) and the page replaces itself with a pass/fail list. Thirteen assertions run against EDF cards built in memory, covering the arithmetic that fails silently: the seconds-or-minutes and L/s-or-L/min unit sniffs, digital-to-physical gain, percentile, header bounds, and annotation parsing. `node .github/selftest.mjs` runs the same checks across four timezones, which is what CI runs on every push.
 
 **File I/O on the main thread, ArrayBuffers into the worker.** Avoids a WebKit bug where reading cloned `File` handles inside a worker fails.
 
@@ -111,11 +113,15 @@ python3 -m http.server 8000
 # open http://localhost:8000
 ```
 
+Run the checks with `node .github/selftest.mjs`, or open <http://localhost:8000/?selftest> to run them in the browser.
+
 Opening `index.html` straight from disk mostly works. Some browsers restrict Blob workers on `file://` URLs, and the app falls back to inline parsing when that happens.
 
 ## Deploying
 
-Cloudflare Pages: connect the repo, no build command, output directory `/`. Enable Web Analytics in project settings for visit counts. `_headers` ships the CSP automatically.
+Cloudflare Workers static assets: connect the repo, no build command, the repository root as the assets directory. `_headers` ships the CSP automatically, and `.assetsignore` keeps `.git` and `.github` out of the upload. Workers does not exclude dotfiles on its own the way Pages did, so without that file the repository's history is served from the edge. Enable Web Analytics in project settings for visit counts.
+
+`main` is protected and deploys on merge, so changes go through a pull request from `develop` with the self-check passing.
 
 Any static host works. To fork without analytics, delete the two `cloudflareinsights` entries from the CSP, and the site then makes no external requests at all.
 
